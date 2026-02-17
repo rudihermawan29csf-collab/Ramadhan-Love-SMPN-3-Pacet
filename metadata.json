@@ -1,0 +1,7 @@
+{
+  "name": "Ramadhan SMPN 3 Pacet",
+  "description": "Aplikasi Ramadhan ceria dan interaktif untuk siswa, wali kelas, dan admin SMPN 3 Pacet. Fitur mencakup jurnal ibadah, jadwal sholat, materi islami, kuis, dan pemantauan aktivitas siswa.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
