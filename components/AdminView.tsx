@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StudentData, Material, Broadcast, CLASSES, AppSettings, PrayerTimes } from '../types';
+import { StudentData, Material, Broadcast, CLASSES, AppSettings, PrayerTimes, DailyJournal, ActivityLog } from '../types';
 import { StorageService } from '../services/storageService';
 import { 
   Users, Book, Bell, Plus, Trash2, Edit2, Search, Download, Upload, 
@@ -381,19 +381,22 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
     const journal = student.journal[monitorDate];
     if (!journal) return <div className="w-5 h-5 rounded-full bg-gray-100 mx-auto"></div>;
     
-    // @ts-ignore
-    const entry = journal[type];
+    // Safely access the journal entry using proper typing
+    const entry = journal[type as keyof DailyJournal];
     
     if (typeof entry === 'boolean') {
         return entry ? <CheckCircle size={20} className="mx-auto text-indigo-500" fill="#e0e7ff" /> : <div className="w-5 h-5 rounded-full bg-red-50 border border-red-100 mx-auto"></div>;
     }
 
-    if (entry?.completed) {
-        if (entry.type) {
+    // Since we filtered boolean out, cast to ActivityLog for further checks
+    const activity = entry as ActivityLog;
+
+    if (activity?.completed) {
+        if (activity.type) {
             return (
                 <div className="flex flex-col items-center">
-                    <span className={`text-[10px] font-bold px-1.5 rounded ${entry.type === 'Jamaah' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {entry.type === 'Jamaah' ? 'J' : 'S'}
+                    <span className={`text-[10px] font-bold px-1.5 rounded ${activity.type === 'Jamaah' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {activity.type === 'Jamaah' ? 'J' : 'S'}
                     </span>
                     <CheckCircle size={16} className="text-indigo-500 mt-0.5" fill="#e0e7ff" />
                 </div>

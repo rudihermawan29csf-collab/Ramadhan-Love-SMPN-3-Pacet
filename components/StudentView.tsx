@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, StudentData, DailyJournal, Material, Broadcast, PrayerTimes, ActivityLog, AppSettings } from '../types';
 import { StorageService } from '../services/storageService';
-import { Calendar, Clock, BookOpen, CheckCircle, Award, Volume2, Trophy, Loader2, MapPin, Edit3, Send, AlertCircle, BookmarkCheck, ChevronDown, Bell, Home, LogOut, X, User as UserIcon, Globe, Wifi, Youtube, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, Menu, History } from 'lucide-react';
+import { Calendar, Clock, BookOpen, CheckCircle, Award, Volume2, Trophy, Loader2, MapPin, Edit3, Send, AlertCircle, BookmarkCheck, ChevronDown, Bell, Home, LogOut, X, User as UserIcon, Globe, Wifi, Youtube, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, Menu, History, HelpCircle, Star, Users, Moon, Sun } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface StudentViewProps {
@@ -36,7 +36,7 @@ const ContentRenderer: React.FC<{ content: string }> = ({ content }) => {
 };
 
 const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'kajian' | 'quiz' | 'ranking'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'kajian' | 'quiz' | 'ranking' | 'guide'>('dashboard');
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [nextPrayer, setNextPrayer] = useState<{ name: string, time: string, timeLeft: string } | null>(null);
@@ -485,6 +485,101 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
       </div>
     </div>
   );
+
+  const renderGuide = () => {
+      const pointSystem = [
+          { item: 'Sholat Wajib (Sendiri)', point: '+10', icon: CheckCircle, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+          { item: 'Sholat Wajib (Jamaah)', point: '+20', icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+          { item: 'Puasa Ramadhan', point: '+20', icon: Star, color: 'text-amber-600', bg: 'bg-amber-100' },
+          { item: 'Sholat Tarawih', point: '+15', icon: Moon, color: 'text-purple-600', bg: 'bg-purple-100' },
+          { item: 'Sholat Dhuha', point: '+10', icon: Sun, color: 'text-orange-600', bg: 'bg-orange-100' },
+          { item: 'Tadarus Al-Quran', point: '+15', icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-100' },
+          { item: 'Kajian/Ceramah', point: '+20', icon: MapPin, color: 'text-fuchsia-600', bg: 'bg-fuchsia-100' },
+          { item: 'Membaca Materi', point: '+5', icon: Volume2, color: 'text-teal-600', bg: 'bg-teal-100' },
+          { item: 'Mengerjakan Kuis', point: '+20', icon: Award, color: 'text-rose-600', bg: 'bg-rose-100' },
+      ];
+
+      return (
+          <div className="space-y-8 animate-fade-in pb-10">
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden">
+                  <div className="relative z-10">
+                      <h2 className="text-3xl font-bold mb-2 flex items-center gap-3"><HelpCircle size={32}/> Panduan Aplikasi</h2>
+                      <p className="text-emerald-100 font-medium opacity-90">Cara menggunakan aplikasi dan sistem poin Ramadhan.</p>
+                  </div>
+                  <HelpCircle size={200} className="absolute -right-10 -bottom-10 text-white opacity-10 rotate-12" />
+              </div>
+
+              {/* Point System Section */}
+              <div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <Star className="text-amber-500 fill-amber-500" /> Sistem Poin Keaktifan
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {pointSystem.map((p, idx) => (
+                          <div key={idx} className="glass-card p-4 rounded-2xl flex items-center justify-between border border-white/60 hover:scale-[1.02] transition duration-200">
+                              <div className="flex items-center gap-3">
+                                  <div className={`p-3 rounded-xl ${p.bg} ${p.color}`}>
+                                      <p.icon size={20} />
+                                  </div>
+                                  <span className="font-bold text-gray-700 text-sm">{p.item}</span>
+                              </div>
+                              <div className={`font-black text-lg ${p.color}`}>{p.point}</div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+              {/* Features Walkthrough */}
+              <div className="space-y-6">
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <BookOpen className="text-indigo-500" /> Cara Menggunakan Fitur
+                  </h3>
+                  
+                  <div className="glass-card p-6 rounded-[2rem] border border-white/60 space-y-6">
+                      <div className="flex gap-4">
+                          <div className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">1</div>
+                          <div>
+                              <h4 className="font-bold text-gray-800 text-lg">Dashboard</h4>
+                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                  Halaman utama menampilkan jadwal sholat hari ini, countdown waktu sholat berikutnya, total poin kamu, dan pengumuman penting dari sekolah. Jika ada materi baru, notifikasi akan muncul di sini.
+                              </p>
+                          </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                          <div className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">2</div>
+                          <div>
+                              <h4 className="font-bold text-gray-800 text-lg">Jurnal Ibadah</h4>
+                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                  Isi kegiatan ibadahmu setiap hari di menu <b>Jurnal</b>. Klik tombol checklist pada sholat wajib (pilih Sendiri atau Jamaah). Untuk Tarawih, sebutkan nama imam. Kamu juga bisa mengisi jurnal Tadarus dan Kajian Luar Sekolah di sini untuk mendapatkan poin tambahan.
+                              </p>
+                          </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                          <div className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">3</div>
+                          <div>
+                              <h4 className="font-bold text-gray-800 text-lg">Materi & Kuis</h4>
+                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                  Buka menu <b>Materi</b> untuk membaca artikel atau menonton video islami. Poin akan otomatis bertambah saat kamu membuka materi. Kerjakan tantangan di menu <b>Kuis</b> dan klik tombol "Selesai" untuk mengklaim poin.
+                              </p>
+                          </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                          <div className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">4</div>
+                          <div>
+                              <h4 className="font-bold text-gray-800 text-lg">Ranking</h4>
+                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                  Lihat posisimu di antara teman-teman sekolah pada menu <b>Ranking</b>. Semakin rajin kamu mengisi jurnal dan membaca materi, semakin tinggi peringkatmu!
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
 
   const getDailyPoints = (date: string) => {
       if (!studentData?.journal[date]) return 0;
@@ -1107,7 +1202,8 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                   { id: 'journal', icon: BookOpen, label: 'Jurnal' },
                   { id: 'kajian', icon: Volume2, label: 'Materi', badge: unreadMaterialCount > 0 },
                   { id: 'quiz', icon: Award, label: 'Kuis' },
-                  { id: 'ranking', icon: Trophy, label: 'Ranking' }
+                  { id: 'ranking', icon: Trophy, label: 'Ranking' },
+                  { id: 'guide', icon: HelpCircle, label: 'Panduan' }
                 ].map((item) => (
                   <button 
                     key={item.id}
@@ -1167,22 +1263,24 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
          {activeTab === 'kajian' && renderKajian()}
          {activeTab === 'quiz' && renderQuiz()}
          {activeTab === 'ranking' && renderRanking()}
+         {activeTab === 'guide' && renderGuide()}
       </main>
 
        {/* Mobile Bottom Nav */}
        <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
-         <div className="glass-panel rounded-[2rem] shadow-2xl flex justify-around p-3 items-center bg-white/80 backdrop-blur-xl border border-white/50">
+         <div className="glass-panel rounded-[2rem] shadow-2xl flex justify-around p-3 items-center bg-white/80 backdrop-blur-xl border border-white/50 overflow-x-auto">
              {[
                { id: 'dashboard', icon: Home },
                { id: 'journal', icon: BookOpen },
                { id: 'kajian', icon: Volume2, badge: unreadMaterialCount > 0 },
                { id: 'quiz', icon: Award },
-               { id: 'ranking', icon: Trophy }
+               { id: 'ranking', icon: Trophy },
+               { id: 'guide', icon: HelpCircle }
              ].map((item) => (
                 <button 
                   key={item.id}
                   onClick={() => setActiveTab(item.id as any)} 
-                  className={`relative p-3.5 rounded-2xl transition-all duration-300 ${
+                  className={`relative p-3.5 rounded-2xl transition-all duration-300 min-w-[50px] flex justify-center ${
                      activeTab === item.id 
                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 -translate-y-6 scale-110' 
                      : 'text-gray-400 hover:text-indigo-600'
