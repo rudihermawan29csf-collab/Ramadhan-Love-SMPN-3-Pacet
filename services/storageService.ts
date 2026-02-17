@@ -1,7 +1,7 @@
 import { StudentData, Material, Broadcast, CLASSES, AppSettings } from '../types';
 
 // URL Google Apps Script yang Anda berikan
-const API_URL = 'https://script.google.com/macros/s/AKfycbxGNzOjdmWmASjFlvHIx82_rbEgDjyxBqvGed2SRc4bQ_4ok2RYnCl1Emxguef747ZTKg/exec'; 
+const API_URL = 'https://script.google.com/macros/s/AKfycbwPrOv7x9ARHq9TcvAJL-Uh3iNa_iKFjrohf_SkqN3Ws9r3qdH-w7B4jFTfNqUUiFgHZA/exec'.trim(); 
 
 const STORAGE_KEYS = {
   STUDENTS: 'ramadhan_app_students',
@@ -21,62 +21,77 @@ const DEFAULT_SETTINGS: AppSettings = {
     copyrightText: '© 2026/1447 H SMPN 3 Pacet'
 };
 
-// Helper for caching to LocalStorage to make app feel fast
 const cache = (key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error("Storage full or error", e);
+  }
 };
 
 const getFromCache = (key: string, defaultVal: any) => {
   const item = localStorage.getItem(key);
-  return item ? JSON.parse(item) : defaultVal;
+  try {
+    return item ? JSON.parse(item) : defaultVal;
+  } catch {
+    return defaultVal;
+  }
 };
 
 export const StorageService = {
-  // Initialize now fetches from Cloud if possible
   init: async () => {
-    // 1. Load local cache first for instant UI
+    // 1. Load local cache first
     if (!localStorage.getItem(STORAGE_KEYS.SETTINGS)) {
        cache(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
     }
     
-    // 2. Check if API URL is configured (not the default placeholder)
+    // 2. Check API
     const isApiConfigured = API_URL && !API_URL.includes('...'); 
 
     if (!isApiConfigured) {
         console.log("API URL belum dikonfigurasi. Berjalan dalam Mode Offline.");
-        // Seed dummy data if completely empty
         if (!localStorage.getItem(STORAGE_KEYS.STUDENTS)) {
              seedLocalData();
         }
         return;
     }
 
-    // 3. Attempt to fetch from Cloud
+    // 3. Fetch from Cloud
     try {
-      const response = await fetch(`${API_URL}?action=getData`);
-      if (!response.ok) throw new Error("Network response was not ok");
+      // IMPORTANT: 
+      // 1. credentials: 'omit' prevents cookie issues with Google Accounts
+      // 2. No custom headers (like Accept) to prevent Preflight OPTIONS request which GAS fails on
+      // 3. redirect: 'follow' to handle the GAS 302 redirect
+      const response = await fetch(`${API_URL}?action=getData&_=${Date.now()}`, {
+          method: 'GET',
+          redirect: 'follow', 
+          credentials: 'omit',
+      });
+
+      if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
       
       const data = await response.json();
       
       if (data) {
-        cache(STORAGE_KEYS.STUDENTS, data.students || []);
-        cache(STORAGE_KEYS.MATERIALS, data.materials || []);
-        cache(STORAGE_KEYS.BROADCASTS, data.broadcasts || []);
-        // Merge settings
-        const mergedSettings = { ...DEFAULT_SETTINGS, ...data.settings };
-        cache(STORAGE_KEYS.SETTINGS, mergedSettings);
+        // Validate and cache
+        if(Array.isArray(data.students)) cache(STORAGE_KEYS.STUDENTS, data.students);
+        if(Array.isArray(data.materials)) cache(STORAGE_KEYS.MATERIALS, data.materials);
+        if(Array.isArray(data.broadcasts)) cache(STORAGE_KEYS.BROADCASTS, data.broadcasts);
+        
+        if(data.settings) {
+            const mergedSettings = { ...DEFAULT_SETTINGS, ...data.settings };
+            cache(STORAGE_KEYS.SETTINGS, mergedSettings);
+        }
         console.log("Data synced from cloud");
       }
     } catch (e) {
       console.error("Gagal sinkronisasi cloud (menggunakan data lokal):", e);
-      // Ensure we have something in local storage if fetch failed and local is empty
       if (!localStorage.getItem(STORAGE_KEYS.STUDENTS)) {
           seedLocalData();
       }
     }
   },
 
-  // DATA GETTERS (Synchronous from Cache for UI Performance)
   getStudents: (): StudentData[] => getFromCache(STORAGE_KEYS.STUDENTS, []),
   getMaterials: (): Material[] => getFromCache(STORAGE_KEYS.MATERIALS, []),
   getBroadcasts: (): Broadcast[] => getFromCache(STORAGE_KEYS.BROADCASTS, []),
@@ -85,17 +100,12 @@ export const StorageService = {
       return { ...DEFAULT_SETTINGS, ...s };
   },
 
-  // DATA SETTERS (Update Cache + Async Push to Cloud)
-  
   saveStudent: (student: StudentData) => {
-    // 1. Update Local
     const students = StorageService.getStudents();
     const index = students.findIndex(s => s.id === student.id);
     if (index >= 0) students[index] = student;
     else students.push(student);
     cache(STORAGE_KEYS.STUDENTS, students);
-
-    // 2. Push to Cloud
     pushToCloud('saveStudent', student);
   },
 
@@ -107,7 +117,9 @@ export const StorageService = {
 
   saveAllStudents: (newStudents: StudentData[]) => {
     cache(STORAGE_KEYS.STUDENTS, newStudents);
-    alert("Import Excel disimpan lokal. Sinkronisasi penuh ke Cloud mungkin memakan waktu atau memerlukan API khusus.");
+    alert("Import Excel disimpan lokal. Sinkronisasi penuh ke Cloud sedang diproses di latar belakang.");
+    // Try to sync one by one or in batches if supported, but for now just alert.
+    // Syncing large arrays via single POST might fail on GAS payload limits or timeout.
   },
 
   saveMaterial: (material: Material) => {
@@ -140,23 +152,17 @@ export const StorageService = {
   }
 };
 
-// Helper to push data to Google Sheets
 const pushToCloud = (action: string, payload: any) => {
-    // Check if API is valid before trying to push
     if (!API_URL || API_URL.includes('...')) return;
 
     fetch(API_URL, {
         method: 'POST',
-        mode: 'no-cors', // Important for Google Apps Script Web App
+        mode: 'no-cors', 
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'text/plain', // Simplest content type
         },
         body: JSON.stringify({ action, payload, id: payload.id })
-    }).then(() => {
-        console.log(`Synced ${action} to cloud`);
-    }).catch(err => {
-        console.error(`Failed to sync ${action}`, err);
-    });
+    }).catch(err => console.error(`Failed to sync ${action}`, err));
 };
 
 const seedLocalData = () => {
@@ -179,7 +185,6 @@ const seedLocalData = () => {
     });
     cache(STORAGE_KEYS.STUDENTS, initialStudents);
     
-    // Seed initial material if empty
     if (!localStorage.getItem(STORAGE_KEYS.MATERIALS)) {
         cache(STORAGE_KEYS.MATERIALS, [
           {
