@@ -115,11 +115,24 @@ export const StorageService = {
     pushToCloud('deleteStudent', { id });
   },
 
-  saveAllStudents: (newStudents: StudentData[]) => {
-    cache(STORAGE_KEYS.STUDENTS, newStudents);
-    alert("Import Excel disimpan lokal. Sinkronisasi penuh ke Cloud sedang diproses di latar belakang.");
-    // Try to sync one by one or in batches if supported, but for now just alert.
-    // Syncing large arrays via single POST might fail on GAS payload limits or timeout.
+  // Fungsi baru untuk Import Excel dengan antrian upload ke Cloud
+  importStudents: (newStudents: StudentData[]) => {
+    // 1. Simpan Lokal (Gabungkan dengan data lama)
+    const currentStudents = StorageService.getStudents();
+    const updatedList = [...currentStudents, ...newStudents];
+    cache(STORAGE_KEYS.STUDENTS, updatedList);
+
+    // 2. Sync ke Cloud (Spreadsheet)
+    // Kita kirim satu per satu dengan jeda waktu untuk menghindari error "Too Many Requests" atau timeout dari Google Script
+    if (newStudents.length > 0) {
+        console.log(`Mulai sinkronisasi ${newStudents.length} data siswa ke cloud...`);
+        newStudents.forEach((student, index) => {
+            setTimeout(() => {
+                pushToCloud('saveStudent', student);
+                console.log(`Mengirim siswa ${index + 1}/${newStudents.length}: ${student.name}`);
+            }, index * 1000); // Jeda 1 detik per request agar aman
+        });
+    }
   },
 
   saveMaterial: (material: Material) => {

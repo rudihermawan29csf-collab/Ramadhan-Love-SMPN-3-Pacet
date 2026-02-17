@@ -248,11 +248,13 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
            }
         });
 
-        // Merge with existing
-        const allStudents = [...students, ...newStudents];
-        setStudents(allStudents); // Update local state immediately
-        StorageService.saveAllStudents(allStudents);
-        alert(`Berhasil mengimpor ${addedCount} data siswa.`);
+        if (addedCount > 0) {
+            StorageService.importStudents(newStudents);
+            refreshData();
+            alert(`Berhasil mengimpor ${addedCount} data siswa. \n\nData tersimpan di perangkat Anda dan sedang dikirim ke Google Spreadsheet satu per satu di latar belakang. Mohon jangan tutup aplikasi selama beberapa saat.`);
+        } else {
+            alert("Tidak ada data siswa valid yang ditemukan di file Excel.");
+        }
 
       } catch (error) {
         console.error("Excel import error:", error);
