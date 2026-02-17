@@ -349,7 +349,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
 
       // Use modern autoTable usage
       autoTable(doc, {
-          head: [tableColumn],
+          head: [tableColumn] as any[], // Type cast to prevent 'unknown' error in some strict environments
           body: tableRows,
           startY: 30,
           theme: 'grid',
@@ -614,9 +614,17 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
       const items = materials
           .filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz')
           .filter(m => materialCategoryFilter === 'all' || m.category === materialCategoryFilter)
+          // Sort by Newest First for Admin
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       const categories = ['all', ...Array.from(new Set(materials.filter(m => m.category !== 'quiz').map(m => m.category)))];
+
+      const getCount = (cat: string) => {
+          if (cat === 'all') {
+             return materials.filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz').length;
+          }
+          return materials.filter(m => m.category === cat).length;
+      };
 
       return (
         <div className="space-y-6 animate-fade-in">
@@ -626,12 +634,18 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
                         <button 
                           key={cat} 
                           onClick={() => setMaterialCategoryFilter(cat)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition ${materialCategoryFilter === cat ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200'}`}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2 ${materialCategoryFilter === cat ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200'}`}
                         >
-                            {cat}
+                            {cat} 
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] ${materialCategoryFilter === cat ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                {getCount(cat)}
+                            </span>
                         </button>
                     ))}
-                    {type === 'quiz' && <div className="font-bold text-gray-500 px-2">Daftar Kuis & Tantangan</div>}
+                    {type === 'quiz' && <div className="font-bold text-gray-500 px-2 flex items-center gap-2">
+                        Daftar Kuis & Tantangan 
+                        <span className="px-2 py-0.5 bg-gray-200 rounded text-xs text-gray-600">{items.length}</span>
+                    </div>}
                 </div>
                 <button onClick={() => openMaterialModal(null, type)} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 w-full md:w-auto justify-center">
                    <Plus size={18} /> Tambah {type === 'quiz' ? 'Kuis' : 'Materi'}
@@ -1177,7 +1191,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
                                        <div className="bg-green-50 p-3 rounded-xl border border-green-100">
                                            <div className="text-xs text-green-500 font-bold uppercase">Sholat Wajib</div>
                                            <div className="text-2xl font-black text-green-700">
-                                               {Object.values(selectedStudentDetail.journal).reduce((acc, day) => {
+                                               {Object.values(selectedStudentDetail.journal).reduce((acc: number, day: any) => {
                                                    // Count prayers
                                                    let count = 0;
                                                    // @ts-ignore

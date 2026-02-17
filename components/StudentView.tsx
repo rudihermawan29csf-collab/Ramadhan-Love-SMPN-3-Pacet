@@ -124,8 +124,6 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
 
   const loadMaterials = () => {
     const mats = StorageService.getMaterials();
-    // Sort Oldest to Newest (Ascending)
-    mats.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     setMaterials(mats);
     if (studentData) checkUnreadMaterials(studentData, mats);
   };
@@ -394,6 +392,25 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
 
   const renderDashboard = () => (
     <div className="space-y-6 animate-fade-in">
+       {/* New Material Notification Banner */}
+       {unreadMaterialCount > 0 && (
+         <div 
+           onClick={() => setActiveTab('kajian')}
+           className="bg-gradient-to-r from-red-500 to-pink-500 rounded-3xl p-1 shadow-lg cursor-pointer transform hover:scale-[1.01] transition-all"
+         >
+             <div className="bg-white/10 backdrop-blur-sm p-4 rounded-[1.3rem] flex items-center justify-between">
+                 <div className="flex items-center gap-3 text-white">
+                     <div className="bg-white/20 p-2 rounded-full animate-pulse"><Bell size={24} /></div>
+                     <div>
+                         <p className="font-bold text-lg leading-tight">Materi Baru Tersedia!</p>
+                         <p className="text-sm opacity-90">Ada {unreadMaterialCount} materi/kuis belum kamu baca. Klik disini.</p>
+                     </div>
+                 </div>
+                 <ChevronRight className="text-white" />
+             </div>
+         </div>
+       )}
+
       {broadcasts.filter(b => b.active).map(b => (
         <div key={b.id} className="glass-card bg-white/40 border border-white/50 text-indigo-900 p-5 rounded-3xl shadow-lg relative overflow-hidden" role="alert">
            <div className="absolute top-0 right-0 p-4 opacity-5"><Bell size={48} /></div>
@@ -772,9 +789,35 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     // Filter non-quiz materials
     const items = materials
       .filter(m => m.category !== 'quiz' && (selectedMaterialCategory === 'all' || m.category === selectedMaterialCategory))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => {
+        // Sort Logic:
+        // 1. Unread items first (isRead = false < isRead = true)
+        // 2. If both Unread: Sort by Newest First (Materi Baru di atas)
+        // 3. If both Read: Sort by Oldest First (Materi lama/kurikulum di atas)
+
+        const isReadA = studentData?.readLogs?.some(log => log.materialId === a.id) || false;
+        const isReadB = studentData?.readLogs?.some(log => log.materialId === b.id) || false;
+
+        // Priority 1: Unread vs Read
+        if (!isReadA && isReadB) return -1; // A is unread, B is read -> A comes first
+        if (isReadA && !isReadB) return 1;  // A is read, B is unread -> B comes first
+        
+        // Priority 2: Within same group
+        if (!isReadA && !isReadB) {
+             // Both Unread: Newest First
+             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        } else {
+             // Both Read: Oldest First (Upload lebih dahulu di atas)
+             return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+      });
 
     const categories: string[] = ['all', ...Array.from(new Set(materials.filter(m => m.category !== 'quiz').map(m => m.category))) as string[]];
+    
+    const getCount = (cat: string) => {
+        if (cat === 'all') return materials.filter(m => m.category !== 'quiz').length;
+        return materials.filter(m => m.category === cat).length;
+    };
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -790,13 +833,16 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
               <button
                 key={cat}
                 onClick={() => setSelectedMaterialCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
                   selectedMaterialCategory === cat
                     ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-200'
                     : 'bg-white/50 text-gray-600 hover:bg-white'
                 }`}
               >
                 {cat === 'all' ? 'Semua' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                <span className={`px-1.5 py-0.5 rounded text-[10px] ${selectedMaterialCategory === cat ? 'bg-fuchsia-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    {getCount(cat)}
+                </span>
               </button>
             ))}
          </div>
@@ -886,7 +932,23 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
   const renderQuiz = () => {
     const items = materials
         .filter(m => m.category === 'quiz')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => {
+             // Sort Priority:
+             // 1. Unread items first
+             // 2. If both unread -> Newest First
+             // 3. If both read -> Oldest First (Kurikulum)
+            const isReadA = studentData?.readLogs?.some(log => log.materialId === a.id) || false;
+            const isReadB = studentData?.readLogs?.some(log => log.materialId === b.id) || false;
+    
+            if (!isReadA && isReadB) return -1;
+            if (isReadA && !isReadB) return 1;
+
+            if (!isReadA && !isReadB) {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            } else {
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            }
+        });
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -894,6 +956,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
            <h3 className="text-2xl font-bold text-gray-800 flex items-center tracking-tight">
              <Award className="mr-3 text-amber-500" /> Kuis & Tantangan
            </h3>
+           <div className="bg-amber-100 text-amber-600 px-3 py-1 rounded-lg text-xs font-bold">Total: {items.length}</div>
          </div>
 
          <div className="space-y-4">
@@ -921,6 +984,9 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                             <div className="text-[9px] text-gray-400 font-medium">
                                 {readLog?.timestamp ? new Date(readLog.timestamp).toLocaleString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit'}) : ''}
                             </div>
+                        )}
+                        {!isDone && (
+                            <div className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-1 rounded-full animate-pulse">BARU</div>
                         )}
                         <div className={`text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
                             <ChevronDown size={20} />
