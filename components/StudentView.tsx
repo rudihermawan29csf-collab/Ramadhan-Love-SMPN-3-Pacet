@@ -996,7 +996,9 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
 
              <div className="grid grid-cols-1 gap-4">
                  {filtered.map(item => {
-                     const isRead = studentData?.readLogs?.some(log => log.materialId === item.id);
+                     // Check read logs properly
+                     const readLog = studentData?.readLogs?.find(log => log.materialId === item.id);
+                     const isRead = !!readLog;
                      const isOpen = expandedMaterialId === item.id;
                      
                      return (
@@ -1008,11 +1010,22 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                                             {item.category}
                                         </span>
                                         {!isRead && <span className="text-[8px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">BARU</span>}
-                                        {isRead && <span className="text-[10px] text-green-600 font-bold flex items-center"><CheckCircle size={10} className="mr-1"/> Selesai</span>}
+                                        {isRead && (
+                                            <span className={`text-[10px] font-bold flex items-center gap-1 px-2 py-0.5 rounded border ${type === 'quiz' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                                <CheckCircle size={10} className="mr-0.5"/> 
+                                                {type === 'quiz' ? 'Selesai (+20 Poin)' : 'Selesai (+5 Poin Tercatat)'}
+                                            </span>
+                                        )}
                                      </div>
                                      <h4 className="font-bold text-gray-800 text-lg leading-tight">{item.title}</h4>
                                      <div className="text-xs text-gray-400 mt-2 flex items-center gap-4">
-                                        <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                                        {isRead && readLog?.timestamp ? (
+                                            <span className="text-green-600/70 font-medium flex items-center gap-1">
+                                                <Clock size={10} /> {type === 'quiz' ? 'Dikerjakan' : 'Dibaca'}: {new Date(readLog.timestamp).toLocaleString('id-ID', {day: 'numeric', month: 'short', hour:'2-digit', minute:'2-digit'})}
+                                            </span>
+                                        ) : (
+                                            <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                                        )}
                                         {item.youtubeUrl && <span className="flex items-center gap-1 text-red-500 font-medium"><Youtube size={12}/> Video</span>}
                                      </div>
                                  </div>
@@ -1037,10 +1050,25 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                                         </div>
                                      )}
                                      <ContentRenderer content={item.content} />
+                                     
                                      {!isRead && (
                                          <div className="mt-4 p-3 bg-indigo-50 text-indigo-700 text-center text-sm font-bold rounded-xl animate-pulse">
-                                             Selamat! Poin +5 ditambahkan karena membaca.
+                                             {type === 'quiz' ? 'Kerjakan kuis ini untuk klaim poin!' : 'Selamat! Poin +5 ditambahkan karena membaca.'}
                                          </div>
+                                     )}
+                                     
+                                     {!isRead && type === 'quiz' && (
+                                        <div className="mt-4 text-center">
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleReadMaterial(item.id, 20, "Mengerjakan Kuis");
+                                                }}
+                                                className="bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-orange-500/30 transition transform hover:-translate-y-0.5 active:scale-95"
+                                            >
+                                                ✅ Selesai & Klaim +20 Poin
+                                            </button>
+                                        </div>
                                      )}
                                  </div>
                              )}

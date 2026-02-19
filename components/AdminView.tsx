@@ -257,7 +257,8 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const bstr = evt.target?.result as string;
+        if (!evt.target) return;
+        const bstr = evt.target.result as string;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
@@ -666,7 +667,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
           // Sort by Newest First for Admin
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      const categories = ['all', ...Array.from(new Set(materials.filter(m => m.category !== 'quiz').map(m => m.category)))];
+      const categories: string[] = ['all', ...Array.from(new Set(materials.filter(m => m.category !== 'quiz').map(m => m.category)))];
 
       const getCount = (cat: string) => {
           if (cat === 'all') {
@@ -679,7 +680,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
         <div className="space-y-6 animate-fade-in">
            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/50 p-4 rounded-3xl border border-white/60 shadow-sm backdrop-blur-md">
                 <div className="flex items-center gap-4 overflow-x-auto w-full md:w-auto pb-1">
-                    {type === 'material' && categories.map(cat => (
+                    {type === 'material' && categories.map((cat: string) => (
                         <button 
                           key={cat} 
                           onClick={() => setMaterialCategoryFilter(cat)}
