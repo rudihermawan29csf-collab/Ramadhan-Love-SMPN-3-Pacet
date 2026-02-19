@@ -325,8 +325,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
   const handleExportMonitoringExcel = () => {
       const dataToExport = getMonitoringData().map(s => {
           const journal = s.journal[monitorDate] || {};
-          // @ts-ignore
-          const getStatus = (key) => journal[key]?.completed ? 'V' : '-';
+          const getStatus = (key: string) => (journal as any)[key]?.completed ? 'V' : '-';
           
           return {
               "Nama": s.name,
@@ -363,8 +362,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
 
       getMonitoringData().forEach(s => {
           const journal = s.journal[monitorDate] || {};
-          // @ts-ignore
-          const getStatus = (key) => journal[key]?.completed ? 'V' : '-';
+          const getStatus = (key: string) => (journal as any)[key]?.completed ? 'V' : '-';
           
           const row = [
               s.name,

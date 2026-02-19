@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, StudentData, DailyJournal, Material, Broadcast, PrayerTimes, ActivityLog, AppSettings } from '../types';
 import { StorageService } from '../services/storageService';
-import { Calendar, Clock, BookOpen, CheckCircle, Award, Volume2, Trophy, Loader2, MapPin, Edit3, Send, AlertCircle, BookmarkCheck, ChevronDown, Bell, Home, LogOut, X, User as UserIcon, Globe, Wifi, Youtube, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, Menu, History, HelpCircle, Star, Users, Moon, Sun, Heart } from 'lucide-react';
+import { Calendar, Clock, BookOpen, CheckCircle, Award, Volume2, Trophy, Loader2, MapPin, Edit3, Send, AlertCircle, BookmarkCheck, ChevronDown, Bell, Home, LogOut, X, User as UserIcon, Globe, Wifi, Youtube, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, Menu, History, HelpCircle, Star, Users, Moon, Sun, Heart, Search } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface StudentViewProps {
@@ -59,7 +59,10 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     summary: '' 
   });
   const [tadarusForm, setTadarusForm] = useState({ surah: '', ayat: '' });
-  const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('all');
+  
+  // Material Filters State
+  const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('Semua');
+  const [materialSearchTerm, setMaterialSearchTerm] = useState<string>('');
   const [expandedMaterialId, setExpandedMaterialId] = useState<string | null>(null);
 
   // Journal Modal State
@@ -70,6 +73,13 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     place: 'Rumah',
     imam: ''
   });
+
+  // Reset filters when active tab changes
+  useEffect(() => {
+      setSelectedMaterialCategory('Semua');
+      setMaterialSearchTerm('');
+      setExpandedMaterialId(null);
+  }, [activeTab]);
 
   // Load Initial Data
   useEffect(() => {
@@ -983,19 +993,61 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
   };
 
   const renderMaterials = (type: 'kajian' | 'quiz') => {
-      const filtered = materials.filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz');
+      // 1. Initial Type Filter
+      const initialFiltered = materials.filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz');
+      
+      // 2. Extract Unique Categories from the current Type list
+      const categories = ['Semua', ...Array.from(new Set(initialFiltered.map(m => m.category)))];
+
+      // 3. Apply Category & Search Filter
+      const displayedItems = initialFiltered.filter(item => {
+          const matchesCategory = selectedMaterialCategory === 'Semua' || item.category === selectedMaterialCategory;
+          const matchesSearch = item.title.toLowerCase().includes(materialSearchTerm.toLowerCase());
+          return matchesCategory && matchesSearch;
+      });
       
       return (
           <div className="space-y-6 animate-fade-in">
-             <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    {type === 'quiz' ? <Award className="text-rose-500"/> : <Volume2 className="text-teal-500"/>} 
-                    {type === 'quiz' ? 'Kuis & Tantangan' : 'Materi Ramadhan'}
-                </h3>
+             <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        {type === 'quiz' ? <Award className="text-rose-500"/> : <Volume2 className="text-teal-500"/>} 
+                        {type === 'quiz' ? 'Kuis & Tantangan' : 'Materi Ramadhan'}
+                    </h3>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                    <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder={type === 'quiz' ? "Cari kuis..." : "Cari materi..."}
+                        className="w-full bg-white border border-gray-200 rounded-2xl pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none transition shadow-sm"
+                        value={materialSearchTerm}
+                        onChange={(e) => setMaterialSearchTerm(e.target.value)}
+                    />
+                </div>
+
+                {/* Automatic Category Filter Tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                    {categories.map(cat => (
+                        <button 
+                            key={cat} 
+                            onClick={() => setSelectedMaterialCategory(cat)}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
+                                selectedMaterialCategory === cat 
+                                ? (type === 'quiz' ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-200' : 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-200')
+                                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
              </div>
 
              <div className="grid grid-cols-1 gap-4">
-                 {filtered.map(item => {
+                 {displayedItems.map(item => {
                      // Check read logs properly
                      const readLog = studentData?.readLogs?.find(log => log.materialId === item.id);
                      const isRead = !!readLog;
@@ -1075,7 +1127,15 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                          </div>
                      )
                  })}
-                 {filtered.length === 0 && <p className="text-center text-gray-400 italic py-8">Belum ada {type === 'quiz' ? 'kuis' : 'materi'} tersedia.</p>}
+                 {displayedItems.length === 0 && (
+                     <div className="text-center py-12">
+                         <div className="bg-white/40 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                             <Search size={24} className="text-gray-400"/>
+                         </div>
+                         <p className="text-gray-500 font-bold">Tidak ditemukan.</p>
+                         <p className="text-xs text-gray-400">Coba kata kunci atau kategori lain.</p>
+                     </div>
+                 )}
              </div>
           </div>
       );
