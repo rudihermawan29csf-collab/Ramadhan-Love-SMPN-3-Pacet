@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, StudentData, PrayerTimes } from '../types';
+import { User, StudentData, PrayerTimes, DailyJournal, ActivityLog } from '../types';
 import { StorageService } from '../services/storageService';
 import { CheckCircle, XCircle, Users, Calendar, LogOut, ChevronLeft, ChevronRight, Monitor, LayoutDashboard, FileSpreadsheet, FileText, MapPin } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -35,19 +35,26 @@ const TeacherView: React.FC<TeacherViewProps> = ({ user, onLogout }) => {
     const journal = student.journal[selectedDate];
     if (!journal) return <div className="w-5 h-5 rounded-full bg-gray-100 mx-auto"></div>;
     
+    // Check for Haid
+    if (journal.haid) {
+        return <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded font-bold">Haid</span>;
+    }
+
     // @ts-ignore
-    const entry = journal[type];
+    const entry = journal[type as keyof DailyJournal];
     
     if (typeof entry === 'boolean') {
         return entry ? <CheckCircle size={20} className="mx-auto text-indigo-500" fill="#e0e7ff" /> : <div className="w-5 h-5 rounded-full bg-red-50 border border-red-100 mx-auto"></div>;
     }
 
-    if (entry?.completed) {
-        if (entry.type) {
+    const activity = entry as ActivityLog;
+
+    if (activity?.completed) {
+        if (activity.type) {
             return (
                 <div className="flex flex-col items-center">
-                    <span className={`text-[10px] font-bold px-1.5 rounded ${entry.type === 'Jamaah' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {entry.type === 'Jamaah' ? 'J' : 'S'}
+                    <span className={`text-[10px] font-bold px-1.5 rounded ${activity.type === 'Jamaah' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {activity.type === 'Jamaah' ? 'J' : 'S'}
                     </span>
                     <CheckCircle size={16} className="text-indigo-500 mt-0.5" fill="#e0e7ff" />
                 </div>

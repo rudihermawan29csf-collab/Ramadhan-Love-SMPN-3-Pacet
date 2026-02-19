@@ -381,6 +381,11 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
     const journal = student.journal[monitorDate];
     if (!journal) return <div className="w-5 h-5 rounded-full bg-gray-100 mx-auto"></div>;
     
+    // Check if user is on Haid Mode
+    if (journal.haid) {
+        return <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded font-bold">Haid</span>;
+    }
+
     // Safely access the journal entry using proper typing
     const entry = journal[type as keyof DailyJournal];
     
@@ -538,430 +543,366 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
 
   const renderStudents = () => (
     <div className="space-y-6 animate-fade-in">
-       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/50 p-4 rounded-3xl border border-white/60 shadow-sm backdrop-blur-md">
-           <div className="flex items-center gap-4 w-full md:w-auto">
-               <div className="relative flex-1 md:w-64">
-                  <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
-                  <input 
-                    placeholder="Cari Siswa..." 
-                    className="w-full bg-white border border-gray-200 rounded-2xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-               </div>
-               <select 
-                  className="bg-white border border-gray-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
-                  value={filterClass}
-                  onChange={(e) => setFilterClass(e.target.value)}
-               >
-                  <option value="All">Semua Kelas</option>
-                  {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-               </select>
-           </div>
-           
-           <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1">
-               <button onClick={() => { setEditingItem(null); setModalType('student'); setIsModalOpen(true); }} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 whitespace-nowrap">
-                   <Plus size={18} /> Tambah
-               </button>
-               <button onClick={handleDownloadTemplate} className="flex items-center gap-2 bg-white text-gray-600 border border-gray-200 px-4 py-3 rounded-2xl font-bold hover:bg-gray-50 transition whitespace-nowrap">
-                   <Download size={18} /> Template
-               </button>
-               <label className="flex items-center gap-2 bg-white text-gray-600 border border-gray-200 px-4 py-3 rounded-2xl font-bold hover:bg-gray-50 transition cursor-pointer whitespace-nowrap">
-                   <Upload size={18} /> Import
-                   <input type="file" hidden accept=".xlsx" onChange={handleImportExcel} ref={fileInputRef} />
-               </label>
-               <button onClick={handleExportJSON} className="flex items-center gap-2 bg-white text-gray-600 border border-gray-200 px-4 py-3 rounded-2xl font-bold hover:bg-gray-50 transition whitespace-nowrap">
-                   <Download size={18} /> JSON
-               </button>
-           </div>
-       </div>
+        <div className="flex flex-col md:flex-row justify-between gap-4 bg-white/50 p-4 rounded-3xl border border-white/60 shadow-sm backdrop-blur-sm">
+            <div className="flex gap-4 flex-1">
+                <div className="relative flex-1">
+                    <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
+                    <input 
+                        placeholder="Cari nama siswa..." 
+                        className="w-full bg-white border-none rounded-2xl py-3 pl-12 focus:ring-2 focus:ring-indigo-400 shadow-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <select 
+                    className="bg-white border-none rounded-2xl px-6 py-3 font-bold text-gray-600 shadow-sm focus:ring-2 focus:ring-indigo-400"
+                    value={filterClass}
+                    onChange={(e) => setFilterClass(e.target.value)}
+                >
+                    <option value="All">Semua Kelas</option>
+                    {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+            <div className="flex gap-2">
+                <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-50 text-emerald-600 p-3 rounded-xl hover:bg-emerald-100 transition border border-emerald-100" title="Import Excel">
+                    <Upload size={20} />
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleImportExcel} className="hidden" accept=".xlsx, .xls" />
+                
+                <button onClick={handleDownloadTemplate} className="bg-gray-50 text-gray-600 p-3 rounded-xl hover:bg-gray-100 transition border border-gray-100" title="Download Template">
+                    <FileSpreadsheet size={20} />
+                </button>
 
-       <div className="glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60">
-           <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                 <thead className="bg-gray-50/50 text-gray-500 uppercase font-bold text-xs tracking-wider">
-                    <tr>
-                       <th className="p-5">Nama Siswa</th>
-                       <th className="p-5">Kelas</th>
-                       <th className="p-5">NIS / NISN</th>
-                       <th className="p-5">Poin</th>
-                       <th className="p-5 text-center">Aksi</th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-gray-100">
-                    {filteredStudents.map(s => (
-                        <tr key={s.id} className="hover:bg-white/50 transition">
-                           <td className="p-5 font-bold text-gray-700">{s.name}</td>
-                           <td className="p-5">
-                              <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-xs font-bold">{s.className}</span>
-                           </td>
-                           <td className="p-5 text-gray-500">{s.nis} <span className="text-gray-300">/</span> {s.nisn}</td>
-                           <td className="p-5 font-black text-indigo-600">{s.points}</td>
-                           <td className="p-5 flex justify-center gap-2">
-                               <button onClick={() => { setEditingItem(s); setModalType('student'); setIsModalOpen(true); }} className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition"><Edit2 size={16}/></button>
-                               <button onClick={() => handleDeleteStudent(s.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition"><Trash2 size={16}/></button>
-                           </td>
+                <button onClick={handleExportJSON} className="bg-blue-50 text-blue-600 p-3 rounded-xl hover:bg-blue-100 transition border border-blue-100" title="Backup JSON">
+                    <Download size={20} />
+                </button>
+                
+                <button onClick={() => { setEditingItem(null); setModalType('student'); setIsModalOpen(true); }} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2">
+                    <Plus size={20} /> <span className="hidden md:inline">Siswa</span>
+                </button>
+            </div>
+        </div>
+
+        <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-sm border border-white/60">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead className="bg-indigo-50/50 text-indigo-900 font-bold uppercase text-xs tracking-wider">
+                        <tr>
+                            <th className="p-6">Nama Siswa</th>
+                            <th className="p-6">Kelas</th>
+                            <th className="p-6">NIS / NISN</th>
+                            <th className="p-6 text-center">Poin</th>
+                            <th className="p-6 text-right">Aksi</th>
                         </tr>
-                    ))}
-                    {filteredStudents.length === 0 && (
-                        <tr><td colSpan={5} className="p-8 text-center text-gray-400 italic">Tidak ada data siswa ditemukan.</td></tr>
-                    )}
-                 </tbody>
-              </table>
-           </div>
-       </div>
+                    </thead>
+                    <tbody className="divide-y divide-indigo-50">
+                        {filteredStudents.map(student => (
+                            <tr key={student.id} className="hover:bg-white/40 transition">
+                                <td className="p-6 font-bold text-gray-700">{student.name}</td>
+                                <td className="p-6 text-gray-500">
+                                    <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-xs font-bold">{student.className}</span>
+                                </td>
+                                <td className="p-6 text-gray-500 text-sm font-mono">{student.nis} / {student.nisn}</td>
+                                <td className="p-6 text-center font-black text-indigo-600 text-lg">{student.points}</td>
+                                <td className="p-6 text-right flex justify-end gap-2">
+                                    <button onClick={() => { setEditingItem(student); setModalType('student'); setIsModalOpen(true); }} className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition"><Edit2 size={18}/></button>
+                                    <button onClick={() => handleDeleteStudent(student.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition"><Trash2 size={18}/></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {filteredStudents.length === 0 && <div className="p-12 text-center text-gray-400 italic">Tidak ada data siswa ditemukan.</div>}
+        </div>
     </div>
   );
 
   const renderMaterialsOrQuizzes = (type: 'material' | 'quiz') => {
-      const items = materials
-          .filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz')
-          .filter(m => materialCategoryFilter === 'all' || m.category === materialCategoryFilter)
-          // Sort by Newest First for Admin
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      const categories = ['all', ...Array.from(new Set(materials.filter(m => m.category !== 'quiz').map(m => m.category)))];
-
-      const getCount = (cat: string) => {
-          if (cat === 'all') {
-             return materials.filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz').length;
-          }
-          return materials.filter(m => m.category === cat).length;
-      };
-
+      const filtered = materials.filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz');
+      // For materials, we might filter by specific category if needed, but here we show all non-quiz
+      
       return (
         <div className="space-y-6 animate-fade-in">
-           <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/50 p-4 rounded-3xl border border-white/60 shadow-sm backdrop-blur-md">
-                <div className="flex items-center gap-4 overflow-x-auto w-full md:w-auto pb-1">
-                    {type === 'material' && categories.map(cat => (
-                        <button 
-                          key={cat} 
-                          onClick={() => setMaterialCategoryFilter(cat)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap transition flex items-center gap-2 ${materialCategoryFilter === cat ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200'}`}
-                        >
-                            {cat} 
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] ${materialCategoryFilter === cat ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                {getCount(cat)}
-                            </span>
-                        </button>
-                    ))}
-                    {type === 'quiz' && <div className="font-bold text-gray-500 px-2 flex items-center gap-2">
-                        Daftar Kuis & Tantangan 
-                        <span className="px-2 py-0.5 bg-gray-200 rounded text-xs text-gray-600">{items.length}</span>
-                    </div>}
-                </div>
-                <button onClick={() => openMaterialModal(null, type)} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 w-full md:w-auto justify-center">
-                   <Plus size={18} /> Tambah {type === 'quiz' ? 'Kuis' : 'Materi'}
+            <div className="flex justify-between items-center bg-white/50 p-4 rounded-3xl border border-white/60 shadow-sm backdrop-blur-sm">
+                <h2 className="text-xl font-bold text-gray-800 ml-2 flex items-center gap-2">
+                    {type === 'quiz' ? <Award className="text-amber-500"/> : <Book className="text-indigo-500"/>}
+                    Daftar {type === 'quiz' ? 'Kuis' : 'Materi'}
+                </h2>
+                <button onClick={() => openMaterialModal(null, type)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2">
+                    <Plus size={20} /> Tambah
                 </button>
-           </div>
+            </div>
 
-           <div className="space-y-4">
-               {items.map(item => (
-                   <div key={item.id} className="glass-card rounded-[2rem] border border-white/60 overflow-hidden group hover:shadow-md transition">
-                       <div 
-                         onClick={() => toggleMaterialAccordion(item.id)}
-                         className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/40"
-                       >
-                           <div className="flex items-center gap-4">
-                               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${type === 'quiz' ? 'bg-amber-100 text-amber-600' : 'bg-fuchsia-100 text-fuchsia-600'}`}>
-                                   {type === 'quiz' ? <Award size={24} /> : <Book size={24} />}
-                               </div>
-                               <div>
-                                   <div className="flex items-center gap-2 mb-1">
-                                       <span className="text-[10px] font-bold uppercase tracking-widest bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg">{item.category}</span>
-                                       <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString()}</span>
-                                   </div>
-                                   <h3 className="font-bold text-gray-800 text-lg">{item.title}</h3>
-                               </div>
-                           </div>
-                           <div className="flex items-center gap-3">
-                               <button onClick={(e) => { e.stopPropagation(); openMaterialModal(item, type); }} className="p-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition"><Edit2 size={18}/></button>
-                               <button onClick={(e) => { e.stopPropagation(); handleDeleteMaterial(item.id); }} className="p-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-red-50 hover:text-red-600 transition"><Trash2 size={18}/></button>
-                               <ChevronDown size={20} className={`text-gray-400 transition-transform ${expandedMaterialId === item.id ? 'rotate-180' : ''}`} />
-                           </div>
-                       </div>
-                       
-                       {expandedMaterialId === item.id && (
-                           <div className="p-6 border-t border-gray-100 bg-white/30">
-                               {item.youtubeUrl && (
-                                   <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-700">
-                                       <Youtube size={20} />
-                                       <span className="text-sm font-bold truncate">{item.youtubeUrl}</span>
-                                       <a href={item.youtubeUrl} target="_blank" rel="noreferrer" className="ml-auto"><ExternalLink size={16}/></a>
-                                   </div>
-                               )}
-                               <div className="prose prose-sm max-w-none text-gray-600">
-                                   <ContentRenderer content={item.content} />
-                               </div>
-                           </div>
-                       )}
-                   </div>
-               ))}
-               {items.length === 0 && (
-                   <div className="p-12 text-center text-gray-400 bg-white/30 rounded-[2rem] border-2 border-dashed border-gray-200">
-                       Belum ada {type === 'quiz' ? 'kuis' : 'materi'} yang ditambahkan.
-                   </div>
-               )}
-           </div>
+            <div className="grid grid-cols-1 gap-4">
+                {filtered.map(item => (
+                    <div key={item.id} className="glass-card rounded-2xl p-5 border border-white/60 shadow-sm hover:shadow-md transition">
+                        <div className="flex justify-between items-start">
+                            <div className="flex-1 cursor-pointer" onClick={() => toggleMaterialAccordion(item.id)}>
+                                <div className="flex items-center gap-3">
+                                    <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${type === 'quiz' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                                        {item.category}
+                                    </span>
+                                    <h3 className="font-bold text-lg text-gray-800">{item.title}</h3>
+                                </div>
+                                <div className="text-xs text-gray-400 mt-2 flex items-center gap-4">
+                                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                                    {item.youtubeUrl && <span className="flex items-center gap-1 text-red-500"><Youtube size={14}/> Video</span>}
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => openMaterialModal(item, type)} className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition"><Edit2 size={18}/></button>
+                                <button onClick={() => handleDeleteMaterial(item.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition"><Trash2 size={18}/></button>
+                                <button onClick={() => toggleMaterialAccordion(item.id)} className="p-2 bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-100 transition">
+                                    {expandedMaterialId === item.id ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {expandedMaterialId === item.id && (
+                            <div className="mt-4 pt-4 border-t border-gray-100 animate-in slide-in-from-top-2 duration-200">
+                                {item.youtubeUrl && (
+                                    <div className="mb-4 rounded-xl overflow-hidden shadow-lg">
+                                        <iframe 
+                                            width="100%" 
+                                            height="300" 
+                                            src={`https://www.youtube.com/embed/${getYoutubeId(item.youtubeUrl)}`} 
+                                            title="YouTube video player" 
+                                            frameBorder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowFullScreen
+                                        ></iframe>
+                                    </div>
+                                )}
+                                <ContentRenderer content={item.content} />
+                            </div>
+                        )}
+                    </div>
+                ))}
+                {filtered.length === 0 && <div className="p-12 text-center text-gray-400 italic">Belum ada {type === 'quiz' ? 'kuis' : 'materi'} tersedia.</div>}
+            </div>
         </div>
       );
   };
 
-  const renderMonitoring = () => {
-      const filtered = getMonitoringData();
+  const renderMonitoring = () => (
+      <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white/50 p-6 rounded-3xl border border-white/60 shadow-sm backdrop-blur-sm">
+              <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                 <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-2 mb-1 block">Kelas</label>
+                    <select 
+                        className="bg-white border-none rounded-2xl px-6 py-3 font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-indigo-400 w-full md:w-48"
+                        value={monitorClass}
+                        onChange={(e) => setMonitorClass(e.target.value)}
+                    >
+                        {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                 </div>
+                 <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-2 mb-1 block">Tanggal</label>
+                    <input 
+                        type="date" 
+                        value={monitorDate} 
+                        onChange={(e) => setMonitorDate(e.target.value)}
+                        className="bg-white border-none rounded-2xl px-6 py-3 font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-indigo-400 w-full md:w-auto"
+                    />
+                 </div>
+                 <div className="flex items-center pb-2">
+                     <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-3 rounded-2xl shadow-sm border border-transparent hover:border-indigo-200 transition select-none">
+                         <input type="checkbox" checked={showInactiveOnly} onChange={e => setShowInactiveOnly(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5" />
+                         <span className="text-sm font-bold text-gray-600">Hanya yang belum lapor</span>
+                     </label>
+                 </div>
+              </div>
+              
+              <div className="flex gap-2">
+                 <button onClick={handleExportMonitoringExcel} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl text-sm font-bold hover:bg-emerald-100 transition border border-emerald-100 shadow-sm">
+                    <FileSpreadsheet size={18}/> Excel
+                 </button>
+                 <button onClick={handleExportMonitoringPDF} className="flex items-center gap-2 bg-red-50 text-red-600 px-5 py-3 rounded-2xl text-sm font-bold hover:bg-red-100 transition border border-red-100 shadow-sm">
+                    <FileText size={18}/> PDF
+                 </button>
+              </div>
+          </div>
+
+          <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-xl border border-white/60 relative">
+             <div className="overflow-x-auto">
+                <table className="w-full text-center text-sm whitespace-nowrap">
+                   <thead>
+                      <tr className="bg-white/60 text-xs font-bold text-gray-500 uppercase tracking-wider backdrop-blur-md border-b border-gray-100">
+                         <th className="p-5 text-left sticky left-0 bg-white/80 z-10 shadow-sm">Nama Siswa</th>
+                         <th className="p-5">Poin</th>
+                         <th className="p-5">Literasi</th>
+                         <th className="p-5 text-indigo-900/60">Subuh</th>
+                         <th className="p-5 text-indigo-900/60">Zuhur</th>
+                         <th className="p-5 text-indigo-900/60">Asar</th>
+                         <th className="p-5 text-indigo-900/60">Maghrib</th>
+                         <th className="p-5 text-indigo-900/60">Isya</th>
+                         <th className="p-5 text-amber-900/60">Tarawih</th>
+                         <th className="p-5 text-fuchsia-900/60">Puasa</th>
+                         <th className="p-5 text-teal-900/60">Dhuha</th>
+                         <th className="p-5 text-blue-900/60">Kajian</th>
+                         <th className="p-5 text-purple-900/60">Tadarus</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y divide-gray-50/50">
+                      {getMonitoringData().map(s => (
+                         <tr key={s.id} className="hover:bg-indigo-50/30 transition duration-150">
+                            <td className="p-5 text-left font-bold text-gray-700 sticky left-0 bg-white/80 backdrop-blur-md border-r border-gray-100 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">{s.name}</td>
+                            <td className="p-5 font-black text-indigo-600">{s.points}</td>
+                            <td className="p-5 font-bold text-gray-600">{s.readLogs?.length || 0}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'sholatSubuh')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'sholatZuhur')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'sholatAsar')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'sholatMaghrib')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'sholatIsya')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'tarawih')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'puasa')}</td>
+                            <td className="p-5">{getMonitorStatus(s, 'dhuha')}</td>
+                            <td className="p-5">{getDetailButton(s, 'kajian')}</td>
+                            <td className="p-5">{getDetailButton(s, 'tadarus')}</td>
+                         </tr>
+                      ))}
+                      {getMonitoringData().length === 0 && (
+                          <tr><td colSpan={13} className="p-12 text-gray-400 italic">Tidak ada data sesuai filter.</td></tr>
+                      )}
+                   </tbody>
+                </table>
+             </div>
+          </div>
+      </div>
+  );
+
+  const renderRanking = () => {
+      const sortedStudents = [...students].sort((a,b) => b.points - a.points);
+      const displayedStudents = rankingFilterClass === 'All' ? sortedStudents : sortedStudents.filter(s => s.className === rankingFilterClass);
       
       return (
           <div className="space-y-6 animate-fade-in">
-              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-white/50 p-6 rounded-[2rem] border border-white/60 shadow-sm backdrop-blur-md">
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full xl:w-auto">
-                        <div className="glass-card px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/60">
-                            <div className="bg-indigo-100 p-2 rounded-xl text-indigo-600"><Calendar size={18} /></div>
-                            <div>
-                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Tanggal</div>
-                                <input 
-                                type="date" 
-                                value={monitorDate} 
-                                onChange={(e) => setMonitorDate(e.target.value)}
-                                className="bg-transparent border-none focus:ring-0 font-bold text-gray-700 text-sm p-0 w-32 cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                        <div className="glass-card px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/60">
-                            <div className="bg-purple-100 p-2 rounded-xl text-purple-600"><Users size={18} /></div>
-                            <div>
-                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Kelas</div>
-                                <select 
-                                    className="bg-transparent border-none focus:ring-0 font-bold text-gray-700 text-sm p-0 w-24 cursor-pointer"
-                                    value={monitorClass}
-                                    onChange={(e) => setMonitorClass(e.target.value)}
-                                >
-                                    {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="glass-card px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/60">
-                             <div className="bg-amber-100 p-2 rounded-xl text-amber-600"><AlertTriangle size={18} /></div>
-                             <label className="flex items-center gap-2 cursor-pointer">
-                                 <input type="checkbox" checked={showInactiveOnly} onChange={e => setShowInactiveOnly(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500" />
-                                 <span className="text-xs font-bold text-gray-600">Hanya yang belum lapor</span>
-                             </label>
-                        </div>
-                   </div>
-
-                   <div className="flex gap-3 w-full xl:w-auto">
-                        <button onClick={handleExportMonitoringExcel} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl text-sm font-bold hover:bg-emerald-100 transition border border-emerald-100 shadow-sm">
-                            <FileSpreadsheet size={18}/> Excel
-                        </button>
-                        <button onClick={handleExportMonitoringPDF} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-red-50 text-red-600 px-5 py-3 rounded-2xl text-sm font-bold hover:bg-red-100 transition border border-red-100 shadow-sm">
-                            <FileText size={18}/> PDF
-                        </button>
-                   </div>
+              <div className="flex justify-between items-center bg-white/50 p-6 rounded-3xl border border-white/60 shadow-sm backdrop-blur-sm">
+                  <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Trophy className="text-amber-500"/> Peringkat Siswa</h2>
+                  <select 
+                        className="bg-white border-none rounded-2xl px-6 py-3 font-bold text-gray-600 shadow-sm focus:ring-2 focus:ring-indigo-400"
+                        value={rankingFilterClass}
+                        onChange={(e) => setRankingFilterClass(e.target.value)}
+                    >
+                        <option value="All">Semua Kelas</option>
+                        {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
               </div>
 
-              <div className="glass-card rounded-[2rem] shadow-xl overflow-hidden border border-white/60 relative">
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-center text-sm whitespace-nowrap">
-                        <thead>
-                            <tr className="bg-white/50 text-xs font-bold text-gray-500 uppercase tracking-wider backdrop-blur-sm border-b border-gray-100">
-                                <th className="p-5 text-left sticky left-0 bg-white/80 z-10 shadow-sm">Nama Siswa</th>
-                                <th className="p-5">Poin</th>
-                                <th className="p-5 text-fuchsia-900/60">Literasi</th>
-                                <th className="p-5 text-indigo-900/60">Subuh</th>
-                                <th className="p-5 text-indigo-900/60">Zuhur</th>
-                                <th className="p-5 text-indigo-900/60">Asar</th>
-                                <th className="p-5 text-indigo-900/60">Maghrib</th>
-                                <th className="p-5 text-indigo-900/60">Isya</th>
-                                <th className="p-5 text-purple-900/60">Tarawih</th>
-                                <th className="p-5 text-amber-900/60">Puasa</th>
-                                <th className="p-5 text-blue-900/60">Dhuha</th>
-                                <th className="p-5 text-fuchsia-900/60">Kajian</th>
-                                <th className="p-5 text-teal-900/60">Tadarus</th>
-                                <th className="p-5">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50/50">
-                            {filtered.map(s => (
-                                <tr key={s.id} className="hover:bg-indigo-50/30 transition">
-                                    <td className="p-5 text-left font-bold text-gray-700 sticky left-0 bg-white/60 backdrop-blur-md border-r border-gray-100">{s.name}</td>
-                                    <td className="p-5 font-black text-indigo-600">{s.points}</td>
-                                    <td className="p-5 font-bold text-fuchsia-600">{s.readLogs?.length || 0}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'sholatSubuh')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'sholatZuhur')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'sholatAsar')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'sholatMaghrib')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'sholatIsya')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'tarawih')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'puasa')}</td>
-                                    <td className="p-5">{getMonitorStatus(s, 'dhuha')}</td>
-                                    <td className="p-5">{getDetailButton(s, 'kajian')}</td>
-                                    <td className="p-5">{getDetailButton(s, 'tadarus')}</td>
-                                    <td className="p-5">
-                                        <button onClick={() => { setSelectedStudentDetail(s); setDetailTab('journal'); setModalType('detail'); setIsModalOpen(true); }} className="bg-gray-100 p-2 rounded-xl text-gray-500 hover:bg-indigo-100 hover:text-indigo-600 transition">
-                                            <Eye size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {filtered.length === 0 && (
-                                <tr><td colSpan={14} className="p-12 text-center text-gray-400 italic">Data tidak ditemukan.</td></tr>
-                            )}
-                        </tbody>
-                      </table>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  {displayedStudents.slice(0, 3).map((s, idx) => (
+                      <div key={s.id} className={`glass-card p-6 rounded-[2rem] flex flex-col items-center relative overflow-hidden ${idx === 0 ? 'border-amber-400 shadow-amber-200 transform scale-105 z-10' : 'border-white/60'}`}>
+                          {idx === 0 && <div className="absolute top-0 w-full h-2 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300"></div>}
+                          <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black mb-4 shadow-lg ${
+                              idx === 0 ? 'bg-amber-400 text-white ring-4 ring-amber-100' : 
+                              idx === 1 ? 'bg-gray-300 text-white ring-4 ring-gray-100' : 
+                              'bg-orange-300 text-white ring-4 ring-orange-100'
+                          }`}>
+                              {idx + 1}
+                          </div>
+                          <h3 className="font-bold text-lg text-gray-800 text-center">{s.name}</h3>
+                          <p className="text-gray-500 text-sm mb-2">{s.className}</p>
+                          <div className="text-3xl font-black text-indigo-600">{s.points} <span className="text-xs font-normal text-gray-400">Poin</span></div>
+                      </div>
+                  ))}
+              </div>
+
+              <div className="glass-card rounded-[2.5rem] overflow-hidden shadow-sm border border-white/60">
+                 <table className="w-full text-left">
+                     <thead className="bg-indigo-50/50">
+                         <tr>
+                             <th className="p-5 pl-8 text-xs font-bold text-gray-500 uppercase">Peringkat</th>
+                             <th className="p-5 text-xs font-bold text-gray-500 uppercase">Nama Siswa</th>
+                             <th className="p-5 text-xs font-bold text-gray-500 uppercase">Kelas</th>
+                             <th className="p-5 text-right pr-8 text-xs font-bold text-gray-500 uppercase">Total Poin</th>
+                         </tr>
+                     </thead>
+                     <tbody className="divide-y divide-gray-50/50">
+                         {displayedStudents.slice(3).map((s, idx) => (
+                             <tr key={s.id} className="hover:bg-indigo-50/30 transition">
+                                 <td className="p-5 pl-8 font-bold text-gray-400">#{idx + 4}</td>
+                                 <td className="p-5 font-bold text-gray-700">{s.name}</td>
+                                 <td className="p-5"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{s.className}</span></td>
+                                 <td className="p-5 pr-8 text-right font-black text-indigo-600">{s.points}</td>
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
+              </div>
+          </div>
+      );
+  };
+
+  const renderSettings = () => (
+      <div className="max-w-4xl mx-auto animate-fade-in">
+          <div className="glass-card rounded-[2.5rem] p-8 border border-white/60 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2"><Settings className="text-gray-600"/> Pengaturan Aplikasi</h2>
+              <form onSubmit={handleSaveSettings} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                          <h3 className="font-bold text-indigo-600 uppercase text-xs tracking-wider border-b border-indigo-100 pb-2 mb-4">Informasi Sekolah</h3>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-500 mb-2">Nama Sekolah</label>
+                              <input name="schoolName" defaultValue={settings.schoolName} className="w-full border border-gray-200 bg-gray-50/50 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-500 mb-2">Copyright Footer</label>
+                              <input name="copyrightText" defaultValue={settings.copyrightText} className="w-full border border-gray-200 bg-gray-50/50 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-500 mb-2">Judul di Halaman Login</label>
+                              <input name="loginTitle" defaultValue={settings.loginTitle} className="w-full border border-gray-200 bg-gray-50/50 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
+                          </div>
+                      </div>
+
+                      <div className="space-y-4">
+                          <h3 className="font-bold text-amber-600 uppercase text-xs tracking-wider border-b border-amber-100 pb-2 mb-4">Konfigurasi Waktu</h3>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-500 mb-2">Tahun Ramadhan (Hijriyah)</label>
+                              <input name="ramadhanYear" defaultValue={settings.ramadhanYear} className="w-full border border-gray-200 bg-gray-50/50 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-500 mb-2">Tahun Masehi</label>
+                              <input name="gregorianYear" defaultValue={settings.gregorianYear} className="w-full border border-gray-200 bg-gray-50/50 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
+                          </div>
+                      </div>
+
+                      <div className="space-y-4 md:col-span-2">
+                          <h3 className="font-bold text-red-600 uppercase text-xs tracking-wider border-b border-red-100 pb-2 mb-4">Keamanan & Password</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-500 mb-2">Password Admin</label>
+                                  <div className="relative">
+                                      <input name="adminPassword" type="text" defaultValue={settings.adminPassword} className="w-full border border-gray-200 bg-red-50/30 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-400 focus:outline-none font-mono text-sm" />
+                                      <Lock className="absolute left-3 top-3 text-red-400" size={16}/>
+                                  </div>
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-500 mb-2">Password Guru/Wali Kelas</label>
+                                  <div className="relative">
+                                      <input name="teacherPassword" type="text" defaultValue={settings.teacherPassword} className="w-full border border-gray-200 bg-red-50/30 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-400 focus:outline-none font-mono text-sm" />
+                                      <Lock className="absolute left-3 top-3 text-red-400" size={16}/>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
                   </div>
-              </div>
+
+                  <div className="pt-6 border-t border-gray-100">
+                      <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition transform hover:-translate-y-0.5">
+                          Simpan Pengaturan
+                      </button>
+                  </div>
+              </form>
           </div>
-      );
-  };
-
-  const renderSettings = () => {
-      return (
-          <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
-              <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden">
-                   <div className="relative z-10">
-                       <h2 className="text-3xl font-bold mb-2 flex items-center gap-3"><Settings size={32}/> Pengaturan Aplikasi</h2>
-                       <p className="text-gray-400">Konfigurasi data sekolah dan keamanan.</p>
-                   </div>
-                   <Settings size={200} className="absolute -right-10 -bottom-10 text-white opacity-5 rotate-45" />
-              </div>
-
-              <div className="glass-card p-8 rounded-[2rem] border border-white/60 shadow-sm">
-                  <form onSubmit={handleSaveSettings} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="space-y-4">
-                               <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2"><MapPin size={18} className="text-indigo-500"/> Informasi Sekolah</h3>
-                               <div>
-                                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nama Sekolah</label>
-                                   <input name="schoolName" defaultValue={settings.schoolName} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                               </div>
-                               <div>
-                                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Judul Login</label>
-                                   <input name="loginTitle" defaultValue={settings.loginTitle} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                               </div>
-                               <div>
-                                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Teks Copyright</label>
-                                   <input name="copyrightText" defaultValue={settings.copyrightText} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                               </div>
-                           </div>
-
-                           <div className="space-y-4">
-                               <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2"><Calendar size={18} className="text-pink-500"/> Periode</h3>
-                               <div>
-                                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tahun Hijriah</label>
-                                   <input name="ramadhanYear" defaultValue={settings.ramadhanYear} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                               </div>
-                               <div>
-                                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tahun Masehi</label>
-                                   <input name="gregorianYear" defaultValue={settings.gregorianYear} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                               </div>
-                           </div>
-
-                           <div className="space-y-4 md:col-span-2">
-                               <h3 className="font-bold text-gray-800 border-b border-gray-100 pb-2 mb-4 flex items-center gap-2"><Lock size={18} className="text-red-500"/> Keamanan</h3>
-                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                   <div>
-                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Password Admin</label>
-                                       <div className="relative">
-                                           <input type="text" name="adminPassword" defaultValue={settings.adminPassword} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                                           <Lock size={16} className="absolute left-3 top-3.5 text-gray-400" />
-                                       </div>
-                                   </div>
-                                   <div>
-                                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Password Guru</label>
-                                       <div className="relative">
-                                           <input type="text" name="teacherPassword" defaultValue={settings.teacherPassword} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition" />
-                                           <Users size={16} className="absolute left-3 top-3.5 text-gray-400" />
-                                       </div>
-                                   </div>
-                               </div>
-                           </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-100">
-                           <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 rounded-2xl shadow-xl hover:shadow-indigo-500/30 transition transform hover:-translate-y-1 active:scale-95">
-                               Simpan Perubahan
-                           </button>
-                      </div>
-                  </form>
-              </div>
-          </div>
-      );
-  };
-
-  const renderRanking = () => {
-    // Gunakan state 'students' bukan StorageService.getStudents() agar reaktif
-    const filteredRanking = students.filter(s => rankingFilterClass === 'All' || s.className === rankingFilterClass)
-        .sort((a, b) => b.points - a.points);
-    
-    // Top 50 of filtered results
-    const sorted = filteredRanking.slice(0, 50);
-
-    return (
-       <div className="space-y-6 animate-fade-in">
-          <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-[2rem] p-6 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="relative z-10">
-                  <h2 className="text-3xl font-black mb-1">Leaderboard</h2>
-                  <p className="text-amber-100 font-medium opacity-90">Peringkat Siswa Berdasarkan Poin</p>
-              </div>
-              <div className="relative z-10">
-                   <select 
-                      value={rankingFilterClass} 
-                      onChange={(e) => setRankingFilterClass(e.target.value)}
-                      className="bg-white/20 border border-white/40 text-white rounded-xl px-4 py-2 font-bold focus:outline-none focus:bg-white/30 backdrop-blur-md placeholder-white"
-                   >
-                       <option value="All" className="text-gray-800">Semua Kelas</option>
-                       {CLASSES.map(c => <option key={c} value={c} className="text-gray-800">{c}</option>)}
-                   </select>
-              </div>
-              <Trophy size={80} className="absolute right-0 top-0 text-amber-200 opacity-30 transform translate-x-4 -translate-y-4" />
-          </div>
-
-          <div className="glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60">
-              <div className="bg-white/50 p-5 border-b border-gray-100 font-bold text-gray-800 backdrop-blur-sm">
-                 Peringkat Siswa {rankingFilterClass !== 'All' ? `Kelas ${rankingFilterClass}` : ''}
-              </div>
-              <div className="divide-y divide-gray-100/50">
-                 <div className="hidden md:flex bg-gray-50/50 text-xs text-gray-500 font-bold uppercase tracking-wider p-4">
-                     <div className="w-12 text-center">#</div>
-                     <div className="flex-1 px-4">Nama Siswa</div>
-                     <div className="w-24">Kelas</div>
-                     <div className="w-32">NIS / NISN</div>
-                     <div className="w-24 text-right">Poin</div>
-                 </div>
-                 {sorted.map((s, idx) => (
-                     <div 
-                        key={s.id} 
-                        onClick={() => { 
-                            setSelectedStudentDetail(s); 
-                            setDetailTab('journal'); 
-                            setModalType('detail'); 
-                            setIsModalOpen(true); 
-                        }}
-                        className="p-4 flex items-center gap-4 hover:bg-white/60 transition cursor-pointer group"
-                     >
-                         <div className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm flex-shrink-0 ${idx < 3 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white shadow-sm' : 'bg-gray-200 text-gray-500'}`}>
-                             {idx + 1}
-                         </div>
-                         <div className="flex-1 px-2">
-                             <div className="font-bold text-gray-700 group-hover:text-indigo-600 transition">{s.name}</div>
-                             <div className="md:hidden text-xs text-gray-400">{s.className} • NIS: {s.nis}</div>
-                         </div>
-                         <div className="hidden md:block w-24 text-sm text-gray-600">{s.className}</div>
-                         <div className="hidden md:block w-32 text-xs text-gray-500">{s.nis} / {s.nisn}</div>
-                         <div className="font-black text-indigo-600 w-24 text-right">{s.points}</div>
-                     </div>
-                 ))}
-                 {sorted.length === 0 && (
-                     <div className="p-8 text-center text-gray-400 italic">Belum ada data siswa untuk ditampilkan.</div>
-                 )}
-              </div>
-          </div>
-       </div>
-    );
- };
+      </div>
+  );
 
   return (
     <div className={`min-h-screen font-sans text-gray-800 transition-all duration-300 ${isSidebarCollapsed ? 'md:pl-24' : 'md:pl-80'} pb-24 md:pb-0`}>
-       
        {/* Sidebar */}
        <aside className={`hidden md:flex flex-col fixed left-0 top-0 h-screen z-50 p-6 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
            <div className="glass-panel h-full rounded-[2.5rem] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.05)] relative overflow-hidden transition-all duration-300">

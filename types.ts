@@ -57,6 +57,7 @@ export interface DailyJournal {
   tarawih: ActivityLog;
   dhuha: ActivityLog;
   tadarus?: boolean;
+  haid?: boolean; // New field for Menstruation mode
 }
 
 export interface ActivityLog {

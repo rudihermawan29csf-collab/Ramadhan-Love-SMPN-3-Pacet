@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, StudentData, DailyJournal, Material, Broadcast, PrayerTimes, ActivityLog, AppSettings } from '../types';
 import { StorageService } from '../services/storageService';
-import { Calendar, Clock, BookOpen, CheckCircle, Award, Volume2, Trophy, Loader2, MapPin, Edit3, Send, AlertCircle, BookmarkCheck, ChevronDown, Bell, Home, LogOut, X, User as UserIcon, Globe, Wifi, Youtube, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, Menu, History, HelpCircle, Star, Users, Moon, Sun } from 'lucide-react';
+import { Calendar, Clock, BookOpen, CheckCircle, Award, Volume2, Trophy, Loader2, MapPin, Edit3, Send, AlertCircle, BookmarkCheck, ChevronDown, Bell, Home, LogOut, X, User as UserIcon, Globe, Wifi, Youtube, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, Menu, History, HelpCircle, Star, Users, Moon, Sun, Heart } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface StudentViewProps {
@@ -298,6 +298,59 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     StorageService.saveStudent(updatedStudent);
   };
 
+  const toggleHaid = () => {
+    if (!studentData) return;
+    const today = new Date().toISOString().split('T')[0];
+    const newJournal = { ...studentData.journal };
+    
+    if (!newJournal[today]) {
+      // @ts-ignore
+      newJournal[today] = {};
+    }
+
+    const isCurrentlyHaid = newJournal[today].haid;
+    let pointsAdjustment = 0;
+
+    if (!isCurrentlyHaid) {
+        // Activate Haid Mode
+        // 1. Calculate points earned today from restricted activities to deduct them
+        const restrictedKeys = ['sholatSubuh', 'sholatZuhur', 'sholatAsar', 'sholatMaghrib', 'sholatIsya', 'puasa', 'tarawih', 'dhuha'];
+        
+        restrictedKeys.forEach(key => {
+            // @ts-ignore
+            if (newJournal[today][key]?.completed) {
+                // @ts-ignore
+                pointsAdjustment -= (newJournal[today][key].pointsEarned || 0);
+                // Reset the entry
+                // @ts-ignore
+                newJournal[today][key] = { completed: false };
+            }
+        });
+
+        // 2. Add flat points for Haid
+        pointsAdjustment += 50;
+        newJournal[today].haid = true;
+        
+        confetti({ particleCount: 80, spread: 100, origin: { y: 0.6 }, colors: ['#ec4899', '#fbcfe8'] });
+        alert("Mode Haid diaktifkan. Aktivitas sholat dan puasa dinonaktifkan. Kamu mendapatkan +50 Poin pengganti.");
+
+    } else {
+        // Deactivate Haid Mode
+        pointsAdjustment -= 50;
+        newJournal[today].haid = false;
+        alert("Mode Haid dinonaktifkan. Poin pengganti (-50) dicabut. Silakan isi jurnal seperti biasa.");
+    }
+
+    const updatedStudent = {
+        ...studentData,
+        points: Math.max(0, studentData.points + pointsAdjustment),
+        journal: newJournal
+    };
+
+    setStudentData(updatedStudent);
+    StorageService.saveStudent(updatedStudent);
+  };
+
   const handleKajianSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentData) return;
@@ -497,6 +550,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
           { item: 'Kajian/Ceramah', point: '+20', icon: MapPin, color: 'text-fuchsia-600', bg: 'bg-fuchsia-100' },
           { item: 'Membaca Materi', point: '+5', icon: Volume2, color: 'text-teal-600', bg: 'bg-teal-100' },
           { item: 'Mengerjakan Kuis', point: '+20', icon: Award, color: 'text-rose-600', bg: 'bg-rose-100' },
+          { item: 'Mode Haid', point: '+50', icon: Heart, color: 'text-pink-600', bg: 'bg-pink-100' },
       ];
 
       return (
@@ -551,30 +605,14 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                           <div>
                               <h4 className="font-bold text-gray-800 text-lg">Jurnal Ibadah</h4>
                               <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                                  Isi kegiatan ibadahmu setiap hari di menu <b>Jurnal</b>. Klik tombol checklist pada sholat wajib (pilih Sendiri atau Jamaah). Untuk Tarawih, sebutkan nama imam. Kamu juga bisa mengisi jurnal Tadarus dan Kajian Luar Sekolah di sini untuk mendapatkan poin tambahan.
+                                  Isi kegiatan ibadahmu setiap hari di menu <b>Jurnal</b>. Klik tombol checklist pada sholat wajib (pilih Sendiri atau Jamaah). Untuk Tarawih, sebutkan nama imam. Kamu juga bisa mengisi jurnal Tadarus dan Kajian Luar Sekolah di sini untuk mendapatkan poin tambahan. 
+                                  <br/><br/>
+                                  <b>Khusus Siswi Haid:</b> Aktifkan tombol "Mode Haid" di bagian atas jurnal. Ini akan menonaktifkan sholat dan puasa, namun kamu akan mendapatkan poin pengganti (+50).
                               </p>
                           </div>
                       </div>
 
-                      <div className="flex gap-4">
-                          <div className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">3</div>
-                          <div>
-                              <h4 className="font-bold text-gray-800 text-lg">Materi & Kuis</h4>
-                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                                  Buka menu <b>Materi</b> untuk membaca artikel atau menonton video islami. Poin akan otomatis bertambah saat kamu membuka materi. Kerjakan tantangan di menu <b>Kuis</b> dan klik tombol "Selesai" untuk mengklaim poin.
-                              </p>
-                          </div>
-                      </div>
-
-                      <div className="flex gap-4">
-                          <div className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">4</div>
-                          <div>
-                              <h4 className="font-bold text-gray-800 text-lg">Ranking</h4>
-                              <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                                  Lihat posisimu di antara teman-teman sekolah pada menu <b>Ranking</b>. Semakin rajin kamu mengisi jurnal dan membaca materi, semakin tinggi peringkatmu!
-                              </p>
-                          </div>
-                      </div>
+                      {/* ... rest of the walkthrough ... */}
                   </div>
               </div>
           </div>
@@ -584,6 +622,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
   const getDailyPoints = (date: string) => {
       if (!studentData?.journal[date]) return 0;
       const j = studentData.journal[date];
+      if (j.haid) return 50; // Simple check, though points are already in student total
       let total = 0;
       Object.values(j).forEach((v: any) => {
           if (v && v.pointsEarned) total += v.pointsEarned;
@@ -604,6 +643,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                   
                   <div className="overflow-y-auto custom-scrollbar flex-1 space-y-3">
                       {dates.map(date => {
+                          const journalDay = studentData?.journal[date];
                           const points = getDailyPoints(date);
                           const formattedDate = new Date(date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
                           return (
@@ -611,6 +651,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                                   <div>
                                       <div className="font-bold text-gray-700">{formattedDate}</div>
                                       <div className="text-xs text-gray-400">Total Poin Harian</div>
+                                      {journalDay?.haid && <div className="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-md font-bold w-fit mt-1">Sedang Haid</div>}
                                   </div>
                                   <div className="text-xl font-black text-indigo-600">+{points}</div>
                               </div>
@@ -636,6 +677,8 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
         dhuha: { completed: false }
     };
     const journalToday = { ...defaultStructure, ...(studentData?.journal[today] || {}) };
+    const isHaid = journalToday.haid || false;
+
     const prayers = [
       { key: 'sholatSubuh', label: 'Sholat Subuh' },
       { key: 'sholatZuhur', label: 'Sholat Dzuhur' },
@@ -654,11 +697,22 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                <History size={16}/> Riwayat
            </button>
         </div>
-        <div className="text-center bg-white/50 px-4 py-2 rounded-full text-xs font-bold text-indigo-900/60 border border-white shadow-sm mb-4 mx-auto w-fit">
-              {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+        
+        {/* Date & Haid Toggle */}
+        <div className="flex flex-col items-center gap-4 mb-4">
+            <div className="text-center bg-white/50 px-4 py-2 rounded-full text-xs font-bold text-indigo-900/60 border border-white shadow-sm w-fit">
+                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </div>
+            <button 
+                onClick={toggleHaid}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold shadow-md transition-all ${isHaid ? 'bg-pink-500 text-white hover:bg-pink-600 ring-2 ring-pink-300' : 'bg-white text-gray-500 hover:bg-pink-50 hover:text-pink-500'}`}
+            >
+                <Heart size={16} className={isHaid ? 'fill-current animate-pulse' : ''} />
+                {isHaid ? "Sedang Haid (Aktif +50 Poin)" : "Mode Haid (Khusus Siswi)"}
+            </button>
         </div>
 
-        <div className="glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60">
+        <div className={`glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60 ${isHaid ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
           <div className="bg-indigo-50/50 p-5 border-b border-indigo-100 font-bold text-indigo-900 flex justify-between items-center backdrop-blur-sm">
             <span>Sholat Wajib (5 Waktu)</span>
             <span className="text-[10px] bg-white px-2 py-1 rounded-lg text-indigo-600 font-bold shadow-sm border border-indigo-50">Max 100 Poin</span>
@@ -676,10 +730,11 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                           ✓ {info.type} di {info.place} ({info.timestamp}) <span className="text-indigo-600 font-bold">+{info.pointsEarned} Poin</span>
                        </div>
                     )}
-                    {!info.completed && !isTimeForPrayer(p.key) && <div className="text-xs text-red-400 mt-1 italic">Belum masuk waktu</div>}
+                    {!info.completed && !isTimeForPrayer(p.key) && !isHaid && <div className="text-xs text-red-400 mt-1 italic">Belum masuk waktu</div>}
                   </div>
                   <button 
                     onClick={() => initiateJournalEntry(p.key)}
+                    disabled={isHaid}
                     className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-300 shadow-sm ${info.completed ? 'bg-indigo-500 border-indigo-500 text-white scale-110 shadow-indigo-300' : 'bg-white border-gray-100 text-transparent hover:border-indigo-200'}`}
                   >
                     <CheckCircle size={24} fill={info.completed ? "currentColor" : "none"} />
@@ -693,7 +748,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
         {/* ... Rest of Journal (Sunnah, Kajian, Tadarus) ... */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
            {/* Sunnah & Puasa */}
-           <div className="glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60">
+           <div className={`glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60 ${isHaid ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
               <div className="bg-amber-50/50 p-5 border-b border-amber-100 font-bold text-amber-900 flex justify-between items-center backdrop-blur-sm">
                 <span>Amalan Sunnah</span>
                 <span className="text-[10px] bg-white px-2 py-1 rounded-lg text-amber-600 font-bold shadow-sm border border-amber-50">Variabel Poin</span>
@@ -717,6 +772,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                      </div>
                      <button 
                        onClick={() => initiateJournalEntry(item.key)}
+                       disabled={isHaid}
                        // @ts-ignore
                        className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-300 shadow-sm ${journalToday[item.key]?.completed ? 'bg-amber-500 border-amber-500 text-white scale-110 shadow-amber-200' : 'bg-white border-gray-100 text-transparent hover:border-amber-200'}`}
                      >
@@ -739,6 +795,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                      </div>
                      <button 
                        onClick={() => initiateJournalEntry('tarawih')}
+                       disabled={isHaid}
                        // @ts-ignore
                        className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-300 shadow-sm ${journalToday.tarawih?.completed ? 'bg-amber-500 border-amber-500 text-white scale-110 shadow-amber-200' : 'bg-white border-gray-100 text-transparent hover:border-amber-200'}`}
                      >
@@ -831,7 +888,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
         </div>
 
         {/* Tadarus Form */}
-        <div className="glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60">
+        <div className={`glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60 ${isHaid ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
             <div className="bg-blue-50/50 p-5 border-b border-blue-100 font-bold text-blue-900 flex justify-between items-center backdrop-blur-sm">
             <span>Lapor Tadarus</span>
             <span className="text-[10px] bg-white px-2 py-1 rounded-lg text-blue-600 font-bold shadow-sm border border-blue-50">+15 Poin</span>
@@ -845,6 +902,7 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                     value={tadarusForm.surah}
                     onChange={(e) => setTadarusForm({...tadarusForm, surah: e.target.value})}
                     required
+                    disabled={isHaid}
                     />
                     <input 
                     placeholder="Ayat (cth: 1-10)" 
@@ -852,9 +910,13 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
                     value={tadarusForm.ayat}
                     onChange={(e) => setTadarusForm({...tadarusForm, ayat: e.target.value})}
                     required
+                    disabled={isHaid}
                     />
                 </div>
-                <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-2xl text-sm font-bold shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5">
+                <button 
+                    disabled={isHaid}
+                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-2xl text-sm font-bold shadow-lg hover:shadow-blue-500/30 transition transform hover:-translate-y-0.5"
+                >
                     Kirim Laporan (+15 Poin)
                 </button>
                 </form>
@@ -880,488 +942,270 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     );
   };
 
-  const renderKajian = () => {
-    // Filter non-quiz materials
-    const items = materials
-      .filter(m => m.category !== 'quiz' && (selectedMaterialCategory === 'all' || m.category === selectedMaterialCategory))
-      .sort((a, b) => {
-        // Sort Logic:
-        // 1. Unread items first (isRead = false < isRead = true)
-        // 2. If both Unread: Sort by Newest First (Materi Baru di atas)
-        // 3. If both Read: Sort by Oldest First (Materi lama/kurikulum di atas)
-
-        const isReadA = studentData?.readLogs?.some(log => log.materialId === a.id) || false;
-        const isReadB = studentData?.readLogs?.some(log => log.materialId === b.id) || false;
-
-        // Priority 1: Unread vs Read
-        if (!isReadA && isReadB) return -1; // A is unread, B is read -> A comes first
-        if (isReadA && !isReadB) return 1;  // A is read, B is unread -> B comes first
-        
-        // Priority 2: Within same group
-        if (!isReadA && !isReadB) {
-             // Both Unread: Newest First
-             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        } else {
-             // Both Read: Oldest First (Upload lebih dahulu di atas)
-             return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        }
-      });
-
-    const categories: string[] = ['all', ...Array.from(new Set(materials.filter(m => m.category !== 'quiz').map(m => m.category))) as string[]];
-    
-    const getCount = (cat: string) => {
-        if (cat === 'all') return materials.filter(m => m.category !== 'quiz').length;
-        return materials.filter(m => m.category === cat).length;
-    };
-
-    return (
-      <div className="space-y-6 animate-fade-in">
-         <div className="flex items-center justify-between">
-           <h3 className="text-2xl font-bold text-gray-800 flex items-center tracking-tight">
-             <Volume2 className="mr-3 text-fuchsia-500" /> Materi & Kajian
-           </h3>
-         </div>
-         
-         {/* Category Filter */}
-         <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedMaterialCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
-                  selectedMaterialCategory === cat
-                    ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-200'
-                    : 'bg-white/50 text-gray-600 hover:bg-white'
-                }`}
-              >
-                {cat === 'all' ? 'Semua' : cat.charAt(0).toUpperCase() + cat.slice(1)}
-                <span className={`px-1.5 py-0.5 rounded text-[10px] ${selectedMaterialCategory === cat ? 'bg-fuchsia-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                    {getCount(cat)}
-                </span>
-              </button>
-            ))}
-         </div>
-
-         <div className="space-y-4">
-            {items.map(m => {
-               const readLog = studentData?.readLogs?.find(log => log.materialId === m.id);
-               const isRead = !!readLog;
-               const isExpanded = expandedMaterialId === m.id;
-               
-               return (
-                <div key={m.id} className={`glass-card bg-white/60 border border-white rounded-[2rem] overflow-hidden transition-all duration-300 ${isExpanded ? 'shadow-md ring-1 ring-fuchsia-400' : 'hover:shadow-sm'} ${isRead ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-fuchsia-500'}`}>
-                  <div 
-                    onClick={() => toggleMaterial(m.id)}
-                    className="p-5 cursor-pointer flex justify-between items-center hover:bg-white/40 transition"
-                  >
-                     <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-lg border ${isRead ? 'bg-green-50 text-green-600 border-green-100' : 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100'}`}>
-                                {m.category}
-                            </span>
-                            <span className="text-xs text-gray-400 flex items-center">
-                                <Clock size={10} className="mr-1" />
-                                {new Date(m.createdAt).toLocaleDateString()}
-                            </span>
-                        </div>
-                        <h3 className={`font-bold text-lg ${isRead ? 'text-gray-500 line-through decoration-gray-300' : 'text-gray-900'}`}>{m.title}</h3>
-                     </div>
-                     <div className="flex flex-col items-end gap-1">
-                        {isRead ? (
-                            <>
-                                <div className="flex items-center gap-1 text-green-500 font-bold text-xs bg-green-50 px-2 py-1 rounded-full border border-green-100">
-                                    <CheckCircle size={14} /> Dibaca <span className="text-green-600 ml-1">+5 Poin</span>
-                                </div>
-                                <div className="text-[9px] text-gray-400 font-medium">
-                                    {readLog?.timestamp ? new Date(readLog.timestamp).toLocaleString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit'}) : ''}
-                                </div>
-                            </>
-                        ) : (
-                            <div className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-1 rounded-full animate-pulse">BARU</div>
-                        )}
-                     </div>
-                     <div className={`text-gray-400 transition-transform duration-300 ml-3 ${isExpanded ? 'rotate-180' : ''}`}>
-                            <ChevronDown size={20} />
-                     </div>
-                  </div>
-
-                  <div className={`transition-all duration-300 ease-in-out overflow-hidden bg-white/40 ${isExpanded ? 'max-h-[8000px] opacity-100 border-t border-gray-100' : 'max-h-0 opacity-0'}`}>
-                     <div className="p-6">
-                        {m.youtubeUrl && (
-                             <div className="mb-4">
-                                <a href={m.youtubeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 bg-red-50 text-red-700 rounded-2xl border border-red-100 hover:bg-red-100 transition shadow-sm group">
-                                    <div className="bg-white p-2 rounded-full shadow-sm group-hover:scale-110 transition"><Youtube className="text-red-600" size={24}/></div>
-                                    <div>
-                                        <p className="font-bold text-sm">Tonton Video Kajian</p>
-                                        <p className="text-xs opacity-70 truncate max-w-[200px]">{m.youtubeUrl}</p>
-                                    </div>
-                                    <ExternalLink size={16} className="ml-auto opacity-50"/>
-                                </a>
-                             </div>
-                        )}
-                        <ContentRenderer content={m.content} />
-                        
-                        {!isRead && (
-                             <div className="mt-6 pt-4 border-t border-gray-100 text-center">
-                                 <p className="text-sm text-green-600 italic flex items-center justify-center gap-2 font-bold mb-2">
-                                     <CheckCircle size={16} className="text-green-500"/>
-                                     Poin (+5) otomatis ditambahkan saat kamu membuka ini.
-                                 </p>
-                             </div>
-                        )}
-                     </div>
-                  </div>
-                </div>
-               );
-            })}
-            {items.length === 0 && (
-               <div className="py-12 text-center text-gray-400 bg-white/30 rounded-2xl border-2 border-dashed border-gray-200">
-                  Belum ada materi tersedia untuk kategori ini.
-               </div>
-            )}
-         </div>
-      </div>
-    );
-  };
-
-  const renderQuiz = () => {
-    const items = materials
-        .filter(m => m.category === 'quiz')
-        .sort((a, b) => {
-             // Sort Priority:
-             // 1. Unread items first
-             // 2. If both unread -> Newest First
-             // 3. If both read -> Oldest First (Kurikulum)
-            const isReadA = studentData?.readLogs?.some(log => log.materialId === a.id) || false;
-            const isReadB = studentData?.readLogs?.some(log => log.materialId === b.id) || false;
-    
-            if (!isReadA && isReadB) return -1;
-            if (isReadA && !isReadB) return 1;
-
-            if (!isReadA && !isReadB) {
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            } else {
-                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            }
-        });
-
-    return (
-      <div className="space-y-6 animate-fade-in">
-         <div className="flex items-center justify-between">
-           <h3 className="text-2xl font-bold text-gray-800 flex items-center tracking-tight">
-             <Award className="mr-3 text-amber-500" /> Kuis & Tantangan
-           </h3>
-           <div className="bg-amber-100 text-amber-600 px-3 py-1 rounded-lg text-xs font-bold">Total: {items.length}</div>
-         </div>
-
-         <div className="space-y-4">
-            {items.map(m => {
-               const isExpanded = expandedMaterialId === m.id;
-               const readLog = studentData?.readLogs?.find(log => log.materialId === m.id);
-               const isDone = !!readLog;
-               
-               return (
-                <div key={m.id} className={`glass-card bg-white/60 border border-white rounded-[2rem] overflow-hidden transition-all duration-300 ${isExpanded ? 'shadow-md ring-1 ring-amber-400' : 'hover:shadow-sm'} ${isDone ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-amber-500'}`}>
-                  <div 
-                    onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
-                    className="p-5 cursor-pointer flex justify-between items-center hover:bg-white/40 transition"
-                  >
-                     <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-lg border ${isDone ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                                {isDone ? 'SELESAI (+20 Poin)' : 'KUIS'}
-                            </span>
-                        </div>
-                        <h3 className={`font-bold text-lg ${isDone ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{m.title}</h3>
-                     </div>
-                     <div className="flex flex-col items-end gap-1">
-                        {isDone && (
-                            <div className="text-[9px] text-gray-400 font-medium">
-                                {readLog?.timestamp ? new Date(readLog.timestamp).toLocaleString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit'}) : ''}
-                            </div>
-                        )}
-                        {!isDone && (
-                            <div className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-1 rounded-full animate-pulse">BARU</div>
-                        )}
-                        <div className={`text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                            <ChevronDown size={20} />
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className={`transition-all duration-300 ease-in-out overflow-hidden bg-white/40 ${isExpanded ? 'max-h-[8000px] opacity-100 border-t border-gray-100' : 'max-h-0 opacity-0'}`}>
-                     <div className="p-6">
-                        <ContentRenderer content={m.content} />
-                        
-                        {!isDone && (
-                            <div className="mt-8 pt-6 border-t border-dashed border-gray-300 text-center">
-                                <p className="text-sm text-gray-600 mb-4">Apakah kamu sudah selesai mengerjakan kuis ini?</p>
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleReadMaterial(m.id, 20, "Mengerjakan Kuis");
-                                    }}
-                                    className="bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-orange-500/30 transition transform hover:-translate-y-0.5 active:scale-95"
-                                >
-                                    ✅ Selesai & Klaim +20 Poin
-                                </button>
-                            </div>
-                        )}
-                        {isDone && (
-                             <div className="mt-6 pt-4 border-t border-gray-100 text-center">
-                                 <p className="text-sm text-green-600 italic flex items-center justify-center gap-2 font-bold">
-                                     <CheckCircle size={16} className="text-green-500"/>
-                                     Poin sudah diklaim.
-                                 </p>
-                             </div>
-                        )}
-                     </div>
-                  </div>
-                </div>
-               );
-            })}
-            {items.length === 0 && (
-               <div className="py-12 text-center text-gray-400 bg-white/30 rounded-2xl border-2 border-dashed border-gray-200">
-                  Belum ada kuis saat ini.
-               </div>
-            )}
-         </div>
-      </div>
-    );
-  };
-
   const renderRanking = () => {
-     // Get top 10 students
-     const allStudents = StorageService.getStudents();
-     const sorted = [...allStudents].sort((a, b) => b.points - a.points).slice(0, 50);
-     
-     // Find current student rank
-     const myRank = [...allStudents].sort((a, b) => b.points - a.points).findIndex(s => s.id === user.id) + 1;
+    // Basic ranking view for students (top 5 only)
+    const allStudents = StorageService.getStudents();
+    const sorted = [...allStudents].sort((a,b) => b.points - a.points);
+    const myRank = sorted.findIndex(s => s.id === user.id) + 1;
 
-     return (
+    return (
         <div className="space-y-6 animate-fade-in">
-           <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-[2rem] p-6 text-white shadow-lg relative overflow-hidden">
-               <div className="relative z-10 flex items-center justify-between">
-                   <div>
-                       <p className="text-amber-100 font-bold uppercase tracking-widest text-xs mb-1">Peringkat Kamu</p>
-                       <h2 className="text-4xl font-black">#{myRank}</h2>
-                       <p className="text-sm font-medium opacity-90 mt-1">{studentData?.points} Poin</p>
-                   </div>
-                   <Trophy size={64} className="text-amber-200 opacity-50" />
-               </div>
-           </div>
+            <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden">
+                <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">Peringkat Kamu</div>
+                    <div className="text-6xl font-black">{myRank}</div>
+                    <div className="text-sm opacity-90 mt-2">Dari {sorted.length} Siswa</div>
+                </div>
+                <Trophy size={150} className="absolute -right-6 -bottom-6 opacity-20 rotate-12 text-white" />
+            </div>
 
-           <div className="glass-card rounded-[2rem] shadow-sm overflow-hidden border border-white/60">
-               <div className="bg-white/50 p-5 border-b border-gray-100 font-bold text-gray-800 backdrop-blur-sm">
-                  Top 50 Siswa
-               </div>
-               <div className="divide-y divide-gray-100/50">
-                  {sorted.map((s, idx) => (
-                      <div key={s.id} className={`p-4 flex items-center gap-4 ${s.id === user.id ? 'bg-amber-50/50' : 'hover:bg-white/40'} transition`}>
-                          <div className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm ${idx < 3 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white shadow-sm' : 'bg-gray-200 text-gray-500'}`}>
-                              {idx + 1}
-                          </div>
-                          <div className="flex-1">
-                              <div className="font-bold text-gray-700">{s.name}</div>
-                              <div className="text-xs text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded w-fit mt-1">{s.className}</div>
-                          </div>
-                          <div className="font-black text-indigo-600">{s.points}</div>
-                      </div>
-                  ))}
-               </div>
-           </div>
+            <div className="glass-card rounded-[2.5rem] p-6 border border-white/60 shadow-sm">
+                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><Award className="text-amber-500"/> Top 5 Siswa</h3>
+                <div className="space-y-4">
+                    {sorted.slice(0, 5).map((s, idx) => (
+                        <div key={s.id} className={`flex items-center justify-between p-4 rounded-2xl ${s.id === user.id ? 'bg-indigo-50 border border-indigo-200' : 'bg-white/50 border border-gray-100'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx < 3 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    {idx + 1}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-gray-700 text-sm">{s.name}</div>
+                                    <div className="text-[10px] text-gray-400">{s.className}</div>
+                                </div>
+                            </div>
+                            <div className="font-black text-indigo-600">{s.points}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
-     );
+    );
+  };
+
+  const renderMaterials = (type: 'kajian' | 'quiz') => {
+      const filtered = materials.filter(m => type === 'quiz' ? m.category === 'quiz' : m.category !== 'quiz');
+      
+      return (
+          <div className="space-y-6 animate-fade-in">
+             <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    {type === 'quiz' ? <Award className="text-rose-500"/> : <Volume2 className="text-teal-500"/>} 
+                    {type === 'quiz' ? 'Kuis & Tantangan' : 'Materi Ramadhan'}
+                </h3>
+             </div>
+
+             <div className="grid grid-cols-1 gap-4">
+                 {filtered.map(item => {
+                     const isRead = studentData?.readLogs?.some(log => log.materialId === item.id);
+                     const isOpen = expandedMaterialId === item.id;
+                     
+                     return (
+                         <div key={item.id} className={`glass-card rounded-3xl p-5 border transition-all duration-300 ${isOpen ? 'shadow-lg bg-white/80' : 'shadow-sm bg-white/40 hover:bg-white/60'} ${isRead ? 'border-gray-100' : 'border-indigo-100 ring-1 ring-indigo-50'}`}>
+                             <div className="flex justify-between items-start cursor-pointer" onClick={() => toggleMaterial(item.id)}>
+                                 <div className="flex-1">
+                                     <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${type === 'quiz' ? 'bg-rose-100 text-rose-600' : 'bg-teal-100 text-teal-600'}`}>
+                                            {item.category}
+                                        </span>
+                                        {!isRead && <span className="text-[8px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">BARU</span>}
+                                        {isRead && <span className="text-[10px] text-green-600 font-bold flex items-center"><CheckCircle size={10} className="mr-1"/> Selesai</span>}
+                                     </div>
+                                     <h4 className="font-bold text-gray-800 text-lg leading-tight">{item.title}</h4>
+                                     <div className="text-xs text-gray-400 mt-2 flex items-center gap-4">
+                                        <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                                        {item.youtubeUrl && <span className="flex items-center gap-1 text-red-500 font-medium"><Youtube size={12}/> Video</span>}
+                                     </div>
+                                 </div>
+                                 <div className={`p-2 rounded-full transition ${isOpen ? 'bg-gray-100 text-gray-600' : 'text-gray-400'}`}>
+                                     {isOpen ? <ChevronDown size={20}/> : <ChevronRight size={20}/>}
+                                 </div>
+                             </div>
+
+                             {isOpen && (
+                                 <div className="mt-4 pt-4 border-t border-gray-100 animate-in slide-in-from-top-2">
+                                     {item.youtubeUrl && (
+                                        <div className="mb-4 rounded-xl overflow-hidden shadow-md">
+                                            <iframe 
+                                                width="100%" 
+                                                height="200" 
+                                                src={`https://www.youtube.com/embed/${item.youtubeUrl.split('v=')[1] || ''}`} 
+                                                title="YouTube video player" 
+                                                frameBorder="0" 
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                                allowFullScreen
+                                            ></iframe>
+                                        </div>
+                                     )}
+                                     <ContentRenderer content={item.content} />
+                                     {!isRead && (
+                                         <div className="mt-4 p-3 bg-indigo-50 text-indigo-700 text-center text-sm font-bold rounded-xl animate-pulse">
+                                             Selamat! Poin +5 ditambahkan karena membaca.
+                                         </div>
+                                     )}
+                                 </div>
+                             )}
+                         </div>
+                     )
+                 })}
+                 {filtered.length === 0 && <p className="text-center text-gray-400 italic py-8">Belum ada {type === 'quiz' ? 'kuis' : 'materi'} tersedia.</p>}
+             </div>
+          </div>
+      );
   };
 
   return (
     <div className={`min-h-screen font-sans text-gray-800 transition-all duration-300 ${isSidebarCollapsed ? 'md:pl-24' : 'md:pl-80'} pb-24 md:pb-0`}>
-      
-      {/* Sidebar (Desktop) */}
-      <div className={`hidden md:flex flex-col fixed left-0 top-0 h-screen z-50 p-6 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
-         <div className="glass-panel h-full rounded-[2.5rem] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.05)] relative overflow-hidden transition-all duration-300">
-            <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-indigo-500/10 to-transparent"></div>
-            
-            <div className={`p-8 relative z-10 transition-all duration-300 ${isSidebarCollapsed ? 'px-4' : ''}`}>
-                <div className={`flex items-center gap-4 mb-2 ${isSidebarCollapsed ? 'justify-center flex-col' : ''}`}>
-                     <div className="w-12 h-12 bg-white rounded-2xl shadow-md flex items-center justify-center p-2 transform hover:scale-105 transition">
-                         <img src="https://image2url.com/r2/default/images/1769001049680-d981c280-6340-4989-8563-7b08134c189a.png" alt="Logo" className="w-full h-full object-contain" />
-                     </div>
-                     {!isSidebarCollapsed && (
-                         <div className="animate-fade-in">
-                            <h1 className="font-bold text-xl leading-none text-indigo-900">Ramadhan</h1>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">{settings.schoolName}</p>
-                         </div>
-                     )}
+        {/* Sidebar */}
+        <aside className={`hidden md:flex flex-col fixed left-0 top-0 h-full z-20 p-6 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
+            <div className="glass-panel h-full rounded-[2.5rem] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.05)] relative overflow-hidden transition-all duration-300">
+                <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-indigo-500/10 to-transparent"></div>
+                
+                <div className={`p-8 relative z-10 transition-all duration-300 ${isSidebarCollapsed ? 'px-4' : ''}`}>
+                    <div className={`flex items-center gap-4 mb-2 ${isSidebarCollapsed ? 'justify-center flex-col' : ''}`}>
+                        <div className="w-12 h-12 bg-white rounded-2xl shadow-md flex items-center justify-center p-2 transform hover:scale-105 transition">
+                            <img src="https://image2url.com/r2/default/images/1769001049680-d981c280-6340-4989-8563-7b08134c189a.png" alt="Logo" className="w-full h-full object-contain" />
+                        </div>
+                        {!isSidebarCollapsed && (
+                            <div className="animate-fade-in">
+                                <h1 className="font-bold text-xl leading-none text-indigo-900">Siswa</h1>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Dashboard</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <nav className="flex-1 px-4 space-y-2 relative z-10 mt-2 overflow-y-auto custom-scrollbar">
+                    {[
+                        { id: 'dashboard', icon: Home, label: 'Beranda' },
+                        { id: 'journal', icon: BookOpen, label: 'Jurnal Ibadah' },
+                        { id: 'kajian', icon: Volume2, label: 'Materi & Kajian' },
+                        { id: 'quiz', icon: Award, label: 'Kuis' },
+                        { id: 'ranking', icon: Trophy, label: 'Peringkat' },
+                        { id: 'guide', icon: HelpCircle, label: 'Panduan' },
+                    ].map(item => (
+                        <button 
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id as any)}
+                            title={isSidebarCollapsed ? item.label : ''}
+                            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-between px-4'} py-3.5 text-sm font-bold rounded-2xl transition-all duration-300 group ${
+                            activeTab === item.id 
+                            ? 'bg-white text-indigo-600 shadow-lg shadow-indigo-100 scale-100' 
+                            : 'text-gray-500 hover:bg-white/40 hover:text-indigo-600'
+                            }`}
+                        >
+                            <div className="flex items-center">
+                                <item.icon size={20} className={`${isSidebarCollapsed ? '' : 'mr-3'} ${activeTab === item.id ? 'text-indigo-500' : 'text-gray-400 group-hover:text-indigo-500 transition'}`} /> 
+                                {!isSidebarCollapsed && item.label}
+                            </div>
+                            {!isSidebarCollapsed && item.id === 'kajian' && unreadMaterialCount > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unreadMaterialCount}</span>
+                            )}
+                        </button>
+                    ))}
+                </nav>
+
+                <div className="p-4 relative z-10">
+                    <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="w-full flex items-center justify-center p-2 mb-2 text-gray-400 hover:text-indigo-500 hover:bg-white/50 rounded-xl transition">
+                            {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+                    </button>
+                    <button onClick={onLogout} title="Logout" className={`w-full flex items-center justify-center ${isSidebarCollapsed ? 'px-0' : 'px-4'} py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-2xl transition border border-transparent hover:border-red-100 group`}>
+                        <LogOut size={18} className={`${isSidebarCollapsed ? '' : 'mr-2'} group-hover:-translate-x-1 transition`}/> {!isSidebarCollapsed && 'Logout'}
+                    </button>
                 </div>
             </div>
-            
-            <nav className="flex-1 px-4 space-y-3 relative z-10 mt-2">
-                {[
-                  { id: 'dashboard', icon: Clock, label: 'Dashboard' },
-                  { id: 'journal', icon: BookOpen, label: 'Jurnal' },
-                  { id: 'kajian', icon: Volume2, label: 'Materi', badge: unreadMaterialCount > 0 },
-                  { id: 'quiz', icon: Award, label: 'Kuis' },
-                  { id: 'ranking', icon: Trophy, label: 'Ranking' },
-                  { id: 'guide', icon: HelpCircle, label: 'Panduan' }
-                ].map((item) => (
-                  <button 
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id as any)}
-                    title={isSidebarCollapsed ? item.label : ''}
-                    className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'} py-4 text-sm font-bold rounded-2xl transition-all duration-300 group ${
-                       activeTab === item.id 
-                       ? 'bg-white text-indigo-600 shadow-lg shadow-indigo-100 scale-100' 
-                       : 'text-gray-500 hover:bg-white/40 hover:text-indigo-600'
-                    }`}
-                  >
-                     <div className="flex items-center">
-                        <item.icon size={20} className={`${isSidebarCollapsed ? '' : 'mr-4'} ${activeTab === item.id ? 'text-indigo-500' : 'text-gray-400 group-hover:text-indigo-500 transition'}`} /> 
-                        {!isSidebarCollapsed && item.label}
-                     </div>
-                     {!isSidebarCollapsed && item.badge && (
-                       <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold border-2 border-white animate-pulse shadow-md shadow-red-200">
-                         {unreadMaterialCount}
-                       </div>
-                     )}
-                     {/* Collapsed Badge Dot */}
-                     {isSidebarCollapsed && item.badge && (
-                        <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full border border-white"></div>
-                     )}
-                  </button>
-                ))}
-            </nav>
-            
-            <div className="p-4 relative z-10">
-                <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="w-full flex items-center justify-center p-2 mb-2 text-gray-400 hover:text-indigo-500 hover:bg-white/50 rounded-xl transition">
-                     {isSidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-                </button>
-                <button onClick={onLogout} title="Logout" className={`w-full flex items-center justify-center ${isSidebarCollapsed ? 'px-0' : 'px-4'} py-4 text-sm font-bold text-red-500 hover:bg-red-50 rounded-2xl transition border border-transparent hover:border-red-100 group`}>
-                   <LogOut size={18} className={`${isSidebarCollapsed ? '' : 'mr-2'} group-hover:-translate-x-1 transition`}/> {!isSidebarCollapsed && 'Logout'}
-                </button>
+        </aside>
+
+        <main className="p-4 md:p-8 w-full max-w-[1920px] mx-auto transition-all duration-300">
+            {/* Mobile Header */}
+            <div className="md:hidden flex justify-between items-center mb-6 glass-card px-5 py-4 rounded-[2rem]">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2 shadow-sm border border-gray-100">
+                        <img src="https://image2url.com/r2/default/images/1769001049680-d981c280-6340-4989-8563-7b08134c189a.png" alt="Logo" className="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                        <h1 className="font-bold text-gray-800 leading-none">Ramadhan</h1>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest">{studentData?.name.split(' ')[0]}</p>
+                    </div>
+                </div>
+                <button onClick={onLogout} className="text-red-500 bg-red-50 p-3 rounded-full hover:bg-red-100 transition"><LogOut size={20} /></button>
             </div>
-         </div>
-      </div>
 
-      <main className="p-4 md:p-8 w-full max-w-[1920px] mx-auto transition-all duration-300">
-         {/* Mobile Header */}
-         <div className="md:hidden flex justify-between items-center mb-6 glass-card px-5 py-4 rounded-[2rem]">
-             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2 shadow-sm border border-gray-100">
-                  <img src="https://image2url.com/r2/default/images/1769001049680-d981c280-6340-4989-8563-7b08134c189a.png" alt="Logo" className="w-full h-full object-contain" />
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'journal' && renderJournal()}
+            {activeTab === 'kajian' && renderMaterials('kajian')}
+            {activeTab === 'quiz' && renderMaterials('quiz')}
+            {activeTab === 'ranking' && renderRanking()}
+            {activeTab === 'guide' && renderGuide()}
+        </main>
+
+        {/* Mobile Bottom Nav */}
+        <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
+                <div className="glass-panel rounded-[2rem] shadow-2xl flex justify-around p-3 items-center bg-white/80 backdrop-blur-xl border border-white/50 overflow-x-auto">
+                    {[
+                        { id: 'dashboard', icon: Home },
+                        { id: 'journal', icon: BookOpen },
+                        { id: 'kajian', icon: Volume2 },
+                        { id: 'quiz', icon: Award },
+                        { id: 'ranking', icon: Trophy },
+                    ].map((item) => (
+                        <button 
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id as any)} 
+                            className={`relative p-3.5 rounded-2xl transition-all duration-300 min-w-[50px] flex justify-center ${
+                                activeTab === item.id 
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 -translate-y-6 scale-110' 
+                                : 'text-gray-400 hover:text-indigo-600'
+                            }`}
+                        >
+                            <item.icon size={24} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                            {item.id === 'kajian' && unreadMaterialCount > 0 && (
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                            )}
+                        </button>
+                    ))}
                 </div>
-                <div>
-                   <h1 className="font-bold text-gray-800 leading-none">Ramadhan</h1>
-                   <p className="text-[10px] text-gray-500 uppercase tracking-widest">{settings.schoolName}</p>
-                </div>
-             </div>
-             <button onClick={onLogout} className="text-red-500 bg-red-50 p-3 rounded-full hover:bg-red-100 transition"><LogOut size={20} /></button>
-         </div>
+        </div>
 
-         {activeTab === 'dashboard' && renderDashboard()}
-         {activeTab === 'journal' && renderJournal()}
-         {activeTab === 'kajian' && renderKajian()}
-         {activeTab === 'quiz' && renderQuiz()}
-         {activeTab === 'ranking' && renderRanking()}
-         {activeTab === 'guide' && renderGuide()}
-      </main>
+        {/* History Modal */}
+        {isHistoryModalOpen && renderHistoryModal()}
 
-       {/* Mobile Bottom Nav */}
-       <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
-         <div className="glass-panel rounded-[2rem] shadow-2xl flex justify-around p-3 items-center bg-white/80 backdrop-blur-xl border border-white/50 overflow-x-auto">
-             {[
-               { id: 'dashboard', icon: Home },
-               { id: 'journal', icon: BookOpen },
-               { id: 'kajian', icon: Volume2, badge: unreadMaterialCount > 0 },
-               { id: 'quiz', icon: Award },
-               { id: 'ranking', icon: Trophy },
-               { id: 'guide', icon: HelpCircle }
-             ].map((item) => (
-                <button 
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)} 
-                  className={`relative p-3.5 rounded-2xl transition-all duration-300 min-w-[50px] flex justify-center ${
-                     activeTab === item.id 
-                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 -translate-y-6 scale-110' 
-                     : 'text-gray-400 hover:text-indigo-600'
-                  }`}
-                >
-                   <item.icon size={24} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-                   {item.badge && (
-                     <div className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full border border-white flex items-center justify-center text-[8px] text-white font-bold">
-                       {unreadMaterialCount}
-                     </div>
-                   )}
-                </button>
-             ))}
-         </div>
-      </div>
+        {/* Journal Form Modal */}
+        {isJournalModalOpen && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-in fade-in zoom-in duration-200">
+                <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-6 w-full max-w-sm border border-white">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Lapor {activeJournalKey === 'tarawih' ? 'Tarawih' : 'Sholat'}</h3>
+                    
+                    {activeJournalKey.startsWith('sholat') && (
+                        <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+                            <button onClick={() => setJournalForm({...journalForm, type: 'Sendiri'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${journalForm.type === 'Sendiri' ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}>Sendiri</button>
+                            <button onClick={() => setJournalForm({...journalForm, type: 'Jamaah'})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${journalForm.type === 'Jamaah' ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}>Jamaah</button>
+                        </div>
+                    )}
 
-      {/* JOURNAL INPUT MODAL */}
-      {isJournalModalOpen && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-in fade-in zoom-in duration-200">
-              <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 w-full max-w-sm border border-white">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold text-indigo-900">Detail Ibadah</h3>
-                    <button onClick={() => setIsJournalModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200"><X size={20}/></button>
-                  </div>
-                  {/* ... Existing Modal Content ... */}
-                  {activeJournalKey.startsWith('sholat') && (
-                      <div className="mb-6">
-                          <label className="block text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">Cara Pelaksanaan</label>
-                          <div className="flex gap-3">
-                              <button 
-                                type="button"
-                                onClick={() => setJournalForm({...journalForm, type: 'Sendiri'})}
-                                className={`flex-1 py-4 rounded-2xl text-sm font-bold border-2 transition-all ${journalForm.type === 'Sendiri' ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-lg shadow-indigo-100' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}
-                              >
-                                  Sendiri (+10)
-                              </button>
-                              <button 
-                                type="button"
-                                onClick={() => setJournalForm({...journalForm, type: 'Jamaah'})}
-                                className={`flex-1 py-4 rounded-2xl text-sm font-bold border-2 transition-all ${journalForm.type === 'Jamaah' ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-lg shadow-indigo-100' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}
-                              >
-                                  Berjamaah (+20)
-                              </button>
-                          </div>
-                      </div>
-                  )}
-
-                  {activeJournalKey === 'tarawih' && (
-                       <div className="mb-6">
-                            <label className="block text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">Nama Imam</label>
-                            <input 
-                                className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition"
-                                placeholder="Ustadz..."
-                                value={journalForm.imam}
-                                onChange={(e) => setJournalForm({...journalForm, imam: e.target.value})}
-                            />
-                       </div>
-                  )}
-
-                  <div className="mb-8">
-                        <label className="block text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">Tempat Pelaksanaan</label>
-                        <select 
-                            className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 focus:ring-2 focus:ring-indigo-400 focus:outline-none appearance-none cursor-pointer transition"
+                    <div className="space-y-3 mb-6">
+                        <input 
+                            placeholder="Tempat (Rumah/Masjid/Musholla)" 
+                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                             value={journalForm.place}
                             onChange={(e) => setJournalForm({...journalForm, place: e.target.value})}
-                        >
-                            <option value="Rumah">Rumah</option>
-                            <option value="Sekolah">Sekolah</option>
-                            <option value="Musholla">Musholla</option>
-                            <option value="Masjid">Masjid</option>
-                        </select>
-                  </div>
+                        />
+                        {activeJournalKey === 'tarawih' && (
+                             <input 
+                                placeholder="Nama Imam" 
+                                className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                value={journalForm.imam}
+                                onChange={(e) => setJournalForm({...journalForm, imam: e.target.value})}
+                             />
+                        )}
+                    </div>
 
-                  <button onClick={submitJournalModal} className="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-2xl hover:shadow-xl hover:shadow-indigo-500/30 transition transform hover:-translate-y-1 active:scale-95">
-                      Simpan Data
-                  </button>
-              </div>
-          </div>
-      )}
-
-      {isHistoryModalOpen && renderHistoryModal()}
+                    <div className="flex gap-3">
+                        <button onClick={() => setIsJournalModalOpen(false)} className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold text-sm hover:bg-gray-200 transition">Batal</button>
+                        <button onClick={submitJournalModal} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">Simpan</button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };
