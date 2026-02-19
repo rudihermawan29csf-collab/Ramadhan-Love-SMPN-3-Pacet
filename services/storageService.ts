@@ -159,6 +159,12 @@ export const StorageService = {
     pushToCloud('saveBroadcast', broadcast);
   },
 
+  deleteBroadcast: (id: string) => {
+    const list = StorageService.getBroadcasts().filter(b => b.id !== id);
+    cache(STORAGE_KEYS.BROADCASTS, list);
+    pushToCloud('deleteBroadcast', { id });
+  },
+
   saveSettings: (settings: AppSettings) => {
     cache(STORAGE_KEYS.SETTINGS, settings);
     pushToCloud('saveSettings', settings);
