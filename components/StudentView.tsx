@@ -35,6 +35,71 @@ const ContentRenderer: React.FC<{ content: string }> = ({ content }) => {
   );
 };
 
+// Helper to calculate total points dynamically based on logs
+const calculateTotalPoints = (student: StudentData, materials: Material[]) => {
+  let total = 0;
+
+  // 1. Journal Points
+  if (student.journal) {
+    Object.values(student.journal).forEach((day: any) => {
+      if (day.haid) {
+        total += 50;
+      } else {
+        Object.values(day).forEach((activity: any) => {
+          if (activity && activity.pointsEarned) {
+            total += activity.pointsEarned;
+          }
+        });
+      }
+    });
+  }
+
+  // 2. Kajian Logs (+20 per log, max 3 per day)
+  if (student.kajianLogs) {
+    const kajianByDate: Record<string, number> = {};
+    student.kajianLogs.forEach(log => {
+      const dateStr = log.date.split('T')[0];
+      kajianByDate[dateStr] = (kajianByDate[dateStr] || 0) + 1;
+    });
+
+    Object.values(kajianByDate).forEach(count => {
+      total += Math.min(count, 3) * 20;
+    });
+  }
+
+  // 3. Tadarus Logs (+15 per log, max 3 per day)
+  if (student.tadarusLogs) {
+    const tadarusByDate: Record<string, number> = {};
+    student.tadarusLogs.forEach(log => {
+      const dateStr = log.date.split('T')[0];
+      tadarusByDate[dateStr] = (tadarusByDate[dateStr] || 0) + 1;
+    });
+
+    Object.values(tadarusByDate).forEach(count => {
+      total += Math.min(count, 3) * 15;
+    });
+  }
+
+  // 4. Read Logs
+  if (student.readLogs) {
+    // Ensure unique reads per material to prevent duplicates
+    const processedMaterials = new Set();
+    student.readLogs.forEach(log => {
+      if (!processedMaterials.has(log.materialId)) {
+        processedMaterials.add(log.materialId);
+        const material = materials.find(m => m.id === log.materialId);
+        if (material?.category === 'quiz') {
+          total += 20;
+        } else {
+          total += 5;
+        }
+      }
+    });
+  }
+
+  return total;
+};
+
 const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'journal' | 'kajian' | 'quiz' | 'ranking' | 'guide'>('dashboard');
   const [studentData, setStudentData] = useState<StudentData | null>(null);
@@ -107,6 +172,19 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     if (prayerTimes) calculateNextPrayer();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prayerTimes]);
+
+  // Self-correct points on load if they don't match the logs
+  useEffect(() => {
+    if (studentData && materials.length > 0) {
+        const calculated = calculateTotalPoints(studentData, materials);
+        if (calculated !== studentData.points) {
+            console.log(`Auto-correcting points for ${studentData.name}: ${studentData.points} -> ${calculated}`);
+            const correctedStudent = { ...studentData, points: calculated };
+            setStudentData(correctedStudent);
+            StorageService.saveStudent(correctedStudent);
+        }
+    }
+  }, [studentData, materials]);
 
   const loadStudentData = () => {
     const students = StorageService.getStudents();
@@ -300,9 +378,10 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
 
     const updatedStudent = {
       ...studentData,
-      points: Math.max(0, studentData.points + pointsToAdd),
+      points: 0, // Will be recalculated
       journal: newJournal
     };
+    updatedStudent.points = calculateTotalPoints(updatedStudent, materials);
 
     setStudentData(updatedStudent);
     StorageService.saveStudent(updatedStudent);
@@ -353,9 +432,10 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
 
     const updatedStudent = {
         ...studentData,
-        points: Math.max(0, studentData.points + pointsAdjustment),
+        points: 0, // Will be recalculated
         journal: newJournal
     };
+    updatedStudent.points = calculateTotalPoints(updatedStudent, materials);
 
     setStudentData(updatedStudent);
     StorageService.saveStudent(updatedStudent);
@@ -365,6 +445,10 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     e.preventDefault();
     if (!studentData) return;
     
+    const today = new Date().toISOString().split('T')[0];
+    const todayLogs = studentData.kajianLogs?.filter(l => l.date.startsWith(today)) || [];
+    const pointsToAdd = todayLogs.length < 3 ? 20 : 0;
+
     const finalPlace = kajianForm.type === 'Online' 
         ? `Online: ${kajianForm.link}` 
         : kajianForm.place;
@@ -380,8 +464,9 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     const updatedStudent = {
       ...studentData,
       kajianLogs: [newLog, ...(studentData.kajianLogs || [])],
-      points: studentData.points + 20
+      points: 0 // Will be recalculated
     };
+    updatedStudent.points = calculateTotalPoints(updatedStudent, materials);
 
     setStudentData(updatedStudent);
     StorageService.saveStudent(updatedStudent);
@@ -389,12 +474,21 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     setKajianForm({ speaker: '', type: 'Offline', place: '', link: '', summary: '' });
     
     confetti({ particleCount: 50, spread: 60, colors: ['#818cf8', '#e879f9'] });
-    alert("Alhamdulillah! Kajian tercatat. Kamu mendapatkan +20 Poin.");
+    
+    if (pointsToAdd > 0) {
+        alert("Alhamdulillah! Kajian tercatat. Kamu mendapatkan +20 Poin.");
+    } else {
+        alert("Alhamdulillah! Kajian tercatat. (Maksimal poin kajian 3x sehari telah tercapai).");
+    }
   };
 
   const handleTadarusSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentData) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const todayLogs = studentData.tadarusLogs?.filter(l => l.date.startsWith(today)) || [];
+    const pointsToAdd = todayLogs.length < 3 ? 15 : 0;
 
     const newLog = {
       id: `tadarus_${Date.now()}`,
@@ -405,15 +499,20 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     const updatedStudent = {
       ...studentData,
       tadarusLogs: [newLog, ...(studentData.tadarusLogs || [])],
-      points: studentData.points + 15 
+      points: 0 // Will be recalculated 
     };
+    updatedStudent.points = calculateTotalPoints(updatedStudent, materials);
 
     setStudentData(updatedStudent);
     StorageService.saveStudent(updatedStudent);
     setTadarusForm({ surah: '', ayat: '' });
     
     confetti({ particleCount: 40, spread: 50 });
-    alert("MasyaAllah! Laporan Tadarus diterima. Kamu mendapatkan +15 Poin.");
+    if (pointsToAdd > 0) {
+        alert("MasyaAllah! Laporan Tadarus diterima. Kamu mendapatkan +15 Poin.");
+    } else {
+        alert("MasyaAllah! Laporan Tadarus diterima. (Maksimal poin tadarus 3x sehari telah tercapai).");
+    }
   };
 
   const toggleMaterial = (id: string) => {
@@ -440,8 +539,9 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
     const updatedStudent = {
       ...studentData,
       readLogs: [...(studentData.readLogs || []), newLog],
-      points: studentData.points + pointValue
+      points: 0 // Will be recalculated
     };
+    updatedStudent.points = calculateTotalPoints(updatedStudent, materials);
     
     setStudentData(updatedStudent);
     StorageService.saveStudent(updatedStudent);
@@ -630,18 +730,77 @@ const StudentView: React.FC<StudentViewProps> = ({ user, onLogout }) => {
   };
 
   const getDailyPoints = (date: string) => {
-      if (!studentData?.journal[date]) return 0;
-      const j = studentData.journal[date];
-      if (j.haid) return 50; // Simple check, though points are already in student total
       let total = 0;
-      Object.values(j).forEach((v: any) => {
-          if (v && v.pointsEarned) total += v.pointsEarned;
-      });
+      const dateStr = date.split('T')[0];
+
+      // 1. Journal Points
+      if (studentData?.journal[dateStr]) {
+          const j = studentData.journal[dateStr];
+          if (j.haid) {
+              total += 50;
+          } else {
+              Object.values(j).forEach((v: any) => {
+                  if (v && v.pointsEarned) total += v.pointsEarned;
+              });
+          }
+      }
+
+      // 2. Kajian Points (+20, max 3x/day)
+      if (studentData?.kajianLogs) {
+          const dailyKajian = studentData.kajianLogs.filter(log => log.date.startsWith(dateStr));
+          total += Math.min(dailyKajian.length, 3) * 20;
+      }
+
+      // 3. Tadarus Points (+15, max 3x/day)
+      if (studentData?.tadarusLogs) {
+          const dailyTadarus = studentData.tadarusLogs.filter(log => log.date.startsWith(dateStr));
+          total += Math.min(dailyTadarus.length, 3) * 15;
+      }
+
+      // 4. Read/Quiz Points
+      if (studentData?.readLogs) {
+          const dailyRead = studentData.readLogs.filter(log => log.timestamp.startsWith(dateStr));
+          dailyRead.forEach(log => {
+              const material = materials.find(m => m.id === log.materialId);
+              if (material?.category === 'quiz') {
+                  total += 20;
+              } else {
+                  total += 5;
+              }
+          });
+      }
+
       return total;
   }
 
+  const getAllActivityDates = () => {
+      const dates = new Set<string>();
+      
+      // Journal dates
+      if (studentData?.journal) {
+          Object.keys(studentData.journal).forEach(d => dates.add(d));
+      }
+      
+      // Kajian dates
+      studentData?.kajianLogs?.forEach(log => {
+          if (log.date) dates.add(log.date.split('T')[0]);
+      });
+
+      // Tadarus dates
+      studentData?.tadarusLogs?.forEach(log => {
+          if (log.date) dates.add(log.date.split('T')[0]);
+      });
+
+      // Read dates
+      studentData?.readLogs?.forEach(log => {
+          if (log.timestamp) dates.add(log.timestamp.split('T')[0]);
+      });
+
+      return Array.from(dates).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+  };
+
   const renderHistoryModal = () => {
-      const dates = Object.keys(studentData?.journal || {}).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+      const dates = getAllActivityDates();
       
       return (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-in fade-in zoom-in duration-200">
