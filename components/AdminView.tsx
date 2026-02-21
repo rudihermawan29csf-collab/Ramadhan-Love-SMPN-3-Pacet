@@ -175,7 +175,8 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
   const handleDeleteBroadcast = (id: string) => {
       if(window.confirm("Hapus pengumuman ini?")) {
           StorageService.deleteBroadcast(id);
-          refreshData();
+          setBroadcasts(prev => prev.filter(b => b.id !== id)); // Update UI immediately
+          
           if (editingBroadcastId === id) {
               setBroadcastInput('');
               setEditingBroadcastId(null);
@@ -553,8 +554,8 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
                   <div className="flex justify-between items-start">
                       <p className="text-sm text-gray-700 font-medium">{b.message}</p>
                       <div className="flex gap-1 ml-2">
-                          <button onClick={() => handleEditBroadcast(b)} className="p-1.5 text-blue-500 hover:bg-blue-100 rounded-lg transition"><Edit2 size={14}/></button>
-                          <button onClick={() => handleDeleteBroadcast(b.id)} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition"><Trash2 size={14}/></button>
+                          <button type="button" onClick={() => handleEditBroadcast(b)} className="p-1.5 text-blue-500 hover:bg-blue-100 rounded-lg transition"><Edit2 size={14}/></button>
+                          <button type="button" onClick={() => handleDeleteBroadcast(b.id)} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition"><Trash2 size={14}/></button>
                       </div>
                   </div>
                   <span className="text-[10px] text-gray-400 mt-1 block uppercase tracking-wide">{new Date(b.createdAt).toLocaleDateString()}</span>
@@ -570,6 +571,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onLogout }) => {
                 onChange={(e) => setBroadcastInput(e.target.value)}
             />
             <button 
+               type="button"
                onClick={handleSaveBroadcast}
                className={`w-full text-white font-bold py-3 rounded-xl shadow-lg transition transform hover:-translate-y-0.5 active:scale-95 text-sm ${editingBroadcastId ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:shadow-orange-500/30' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-indigo-500/30'}`}
              >
